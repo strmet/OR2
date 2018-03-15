@@ -1,0 +1,19 @@
+wf03 info:
+
+Ormonde
+
+turbines: 5MW-Senvion
+n turb: 30
+
+connections: 4*
+
+losses computed on 
+Ormode wind data
+
+(cb01 is computed on a set of 3 cables that support 3, 4, 6 5MW turbines)
+(cb02 is computed on a set of 2 cables that support 3,5 3MW turbines)
+cb03 is computed on a set of 3 cables that support 5, 10 5MW turbines
+cb04 is computed on a set of 2 cables that support 4,9 3MW turbines
+(cb05 is computed on a set of 2 cables that support 4,6 3MW turbines)
+
+*only cables 03 and 04 are compatible with the substation constraint of 4connections

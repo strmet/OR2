@@ -1,0 +1,16 @@
+wf05 info:
+Thanet
+
+turbines: V90-3MW
+n turb: 100
+
+connections = 10 *
+
+losses computed on an exstimation of the wind in the site
+
+(cb01 is computed on a set of 3 cables that support 5, 8, 9 3MW turbines)
+(cb02 is computed on a set of 2 cables that support 5,8 3MW turbines)
+cb04 is computed on a set of 3 cables that support 7,15 3MW turbines
+cb05 is computed on a set of 2 cables that support 7, 10 3MW turbines
+
+*only cb04 and cb05 are compatible with the substation constraint of 10connections
