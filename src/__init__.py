@@ -22,8 +22,8 @@ def main():
     points, inst = read_turbines_file(inst)
     cables, inst = read_cables_file(inst)
 
-    n = inst.n_nodes
-    num_cables = inst.num_cables
+    #n = inst.n_nodes
+    #num_cables = inst.num_cables
 
     edges = [Edge(i, j) for i in range(inst.n_nodes) for j in range(inst.n_nodes)]
 
@@ -65,13 +65,13 @@ def main():
     for h in range(len(points)):
         if points[h].power < -0.5:
             model.add_constraint(
-                model.sum(model.get_var_by_name("y_{0}.{1}".format(h + 1, j + 1)) for j in range(n))
+                model.sum(model.get_var_by_name("y_{0}.{1}".format(h + 1, j + 1)) for j in range(inst.n_nodes))
                 ==
                 0
             )
         else:
             model.add_constraint(
-                model.sum(model.get_var_by_name("y_{0}.{1}".format(h + 1, j + 1)) for j in range(n))
+                model.sum(model.get_var_by_name("y_{0}.{1}".format(h + 1, j + 1)) for j in range(inst.n_nodes))
                 ==
                 1
             )
@@ -79,9 +79,9 @@ def main():
     for h in range(len(points)):
         if points[h].power > 0.5:
             model.add_constraint(
-                model.sum(model.get_var_by_name("f_{0}.{1}".format(h + 1, j + 1)) for j in range(n))
+                model.sum(model.get_var_by_name("f_{0}.{1}".format(h + 1, j + 1)) for j in range(inst.n_nodes))
                 ==
-                model.sum(model.get_var_by_name("f_{0}.{1}".format(j + 1, h + 1)) for j in range(n))
+                model.sum(model.get_var_by_name("f_{0}.{1}".format(j + 1, h + 1)) for j in range(inst.n_nodes))
                 + points[h].power
             )
 
@@ -89,21 +89,21 @@ def main():
         model.add_constraint(
             model.get_var_by_name("y_{0}.{1}".format(edge.source + 1, edge.destination + 1))
             ==
-            model.sum(model.get_var_by_name("x_{0}.{1}.{2}".format(edge.source + 1, edge.destination + 1, k + 1)) for k in range(num_cables))
+            model.sum(model.get_var_by_name("x_{0}.{1}.{2}".format(edge.source + 1, edge.destination + 1, k + 1)) for k in range(inst.num_cables))
         )
 
     for edge in edges:
         model.add_constraint(
             model.get_var_by_name("y_{0}.{1}".format(edge.source + 1, edge.destination + 1))
             ==
-            model.sum(model.get_var_by_name("x_{0}.{1}.{2}".format(edge.source + 1, edge.destination + 1, k + 1)) for k in range(num_cables))
+            model.sum(model.get_var_by_name("x_{0}.{1}.{2}".format(edge.source + 1, edge.destination + 1, k + 1)) for k in range(inst.num_cables))
         )
 
     for edge in edges:
         model.add_constraint(
             model.sum(
                 model.get_var_by_name("x_{0}.{1}.{2}".format(edge.source + 1, edge.destination + 1, k + 1)) * cables[k].capacity
-                for k in range(num_cables)
+                for k in range(inst.num_cables)
             )
             >=
             model.get_var_by_name("f_{0}.{1}".format(edge.source + 1, edge.destination + 1))
@@ -113,7 +113,7 @@ def main():
     model.minimize(
         model.sum(
             cables[k].price * get_distance(points[i], points[j]) * model.get_var_by_name("x_{0}.{1}.{2}".format(i + 1, j + 1, k + 1))
-            for k in range(0, num_cables) for i in range(0, n) for j in range(0, n)
+            for k in range(inst.num_cables) for i in range(inst.n_nodes) for j in range(inst.n_nodes)
         )
     )
 
