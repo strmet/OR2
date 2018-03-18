@@ -1,4 +1,4 @@
-from docplex.mp.model import Model, ModelStatistics
+from docplex.mp.model import Model
 from collections import namedtuple
 import math
 import plotly.offline as py
@@ -22,39 +22,40 @@ def main():
     points, inst = read_turbines_file(inst)
     cables, inst = read_cables_file(inst)
 
-    #n = inst.n_nodes
-    #num_cables = inst.num_cables
-
     edges = [Edge(i, j) for i in range(inst.n_nodes) for j in range(inst.n_nodes)]
 
     model = Model(name=inst.name)
     model.set_time_limit(inst.time_limit)
 
-    # Add y_i.i variables
+    # Add y_i.j variables
     inst.y_start = model.get_statistics().number_of_variables
     for index, edge in enumerate(edges):
         model.binary_var(name="y_{0}.{1}".format(edge.source + 1, edge.destination + 1))
-        if inst.debug_mode == True:
+
+        if inst.debug_mode:
             if ypos(index, inst) != model.get_statistics().number_of_variables - 1:
                 raise NameError('Number of variables and index do not match')
 
+    # Add x_i.j variables
     inst.f_start = model.get_statistics().number_of_variables
     for index, edge in enumerate(edges):
         model.continuous_var(name="f_{0}.{1}".format(edge.source + 1, edge.destination + 1))
-        if inst.debug_mode == True:
+
+        if inst.debug_mode:
             if fpos(index, inst) != model.get_statistics().number_of_variables - 1:
                 raise NameError('Number of variables and index do not match')
 
+    # Add f_i.j.k variables
     inst.x_start = model.get_statistics().number_of_variables
     for index, edge in enumerate(edges):
         for k in range(inst.num_cables):
             model.binary_var(name="x_{0}.{1}.{2}".format(edge.source + 1, edge.destination + 1, k + 1))
-        if inst.debug_mode == True:
+
+        if inst.debug_mode:
             if xpos(index, k, inst) != model.get_statistics().number_of_variables - 1:
                 raise NameError('Number of variables and index do not match')
 
-
-    for i in range(inst.n_nodes):
+    for i in range(inst. n_nodes):
         var = model.get_var_by_name("y_{0}.{1}".format(i + 1, i + 1))
         model.add_constraint(var == 0, ctname="y_{0}.{1}=0".format(i + 1, i + 1))
 
@@ -117,7 +118,7 @@ def main():
         )
     )
 
-    model.export_as_lp("mode.lp")
+    model.export_as_lp("model.lp")
     #print("Solving...")
     #model.solve()
 
@@ -155,12 +156,14 @@ def read_cables_file(inst):
     inst.num_cables = len(cables)
     return cables, inst
 
+
 def get_distance(point1, point2):
     return math.sqrt(
         (point1.x - point2.x)**2
         +
         (point1.y - point2.y)**2
     )
+
 
 def plot_solution(nodes, inst):
     G = nx.Graph()
@@ -247,14 +250,18 @@ def plot_solution(nodes, inst):
 
     py.plot(fig, filename='networkx.html')
 
+
 def ypos(offset, inst):
     return inst.y_start + offset
+
 
 def fpos(offset, inst):
     return inst.f_start + offset
 
+
 def xpos(offset, k, inst):
     return inst.x_start + offset * inst.num_cables + k
+
 
 class instance():
 
@@ -279,6 +286,7 @@ class instance():
     # max_nodes
     # cutoff
     # integer_costs
+
 
 if __name__ == "__main__":
     main()
