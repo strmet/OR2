@@ -13,8 +13,8 @@ Cable = namedtuple("Cable", ["capacity", "price", "max_usage"])
 
 def main():
 
-    points = read_turbines_file("wf01/wf01.turb")
-    cables = read_cables_file("wf01/wf01_cb01.cbl")
+    points = read_turbines_file("wf05/wf05.turb")
+    cables = read_cables_file("wf05/wf05_cb04.cbl")
 
     n = len(points)
     num_cables = len(cables)
