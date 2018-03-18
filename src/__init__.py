@@ -34,22 +34,24 @@ def main():
     inst.y_start = model.get_statistics().number_of_variables
     for index, edge in enumerate(edges):
         model.binary_var(name="y_{0}.{1}".format(edge.source + 1, edge.destination + 1))
-        if ypos(index, inst) != model.get_statistics().number_of_variables - 1:
-            raise NameError('Number of variables and index do not match')
+        if inst.debug_mode == True:
+            if ypos(index, inst) != model.get_statistics().number_of_variables - 1:
+                raise NameError('Number of variables and index do not match')
 
     inst.f_start = model.get_statistics().number_of_variables
     for index, edge in enumerate(edges):
         model.continuous_var(name="f_{0}.{1}".format(edge.source + 1, edge.destination + 1))
-        if fpos(index, inst) != model.get_statistics().number_of_variables - 1:
-            raise NameError('Number of variables and index do not match')
+        if inst.debug_mode == True:
+            if fpos(index, inst) != model.get_statistics().number_of_variables - 1:
+                raise NameError('Number of variables and index do not match')
 
     inst.x_start = model.get_statistics().number_of_variables
     for index, edge in enumerate(edges):
         for k in range(inst.num_cables):
             model.binary_var(name="x_{0}.{1}.{2}".format(edge.source + 1, edge.destination + 1, k + 1))
-
-        if xpos(index, k, inst) != model.get_statistics().number_of_variables - 1:
-            raise NameError('Number of variables and index do not match')
+        if inst.debug_mode == True:
+            if xpos(index, k, inst) != model.get_statistics().number_of_variables - 1:
+                raise NameError('Number of variables and index do not match')
 
 
     for i in range(inst.n_nodes):
@@ -272,6 +274,7 @@ class instance():
     #model_type
     #num_threads
     time_limit = 3600
+    debug_mode = False
     # available_memory
     # max_nodes
     # cutoff
