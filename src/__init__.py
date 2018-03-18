@@ -1,16 +1,21 @@
 from docplex.mp.model import Model
 from collections import namedtuple
 import math
+import plotly.offline as py
+from plotly.graph_objs import *
+import networkx as nx
+
 
 Edge = namedtuple("Edge", ["source", "destination"])
 Point = namedtuple("Point", ["x", "y", "power"])
 Cable = namedtuple("Cable", ["capacity", "price", "max_usage"])
 
+
 def main():
 
     points = read_turbines_file("wf01/wf01.turb")
     cables = read_cables_file("wf01/wf01_cb01.cbl")
-    print(points)
+
     n = len(points)
     num_cables = len(cables)
 
@@ -91,17 +96,17 @@ def main():
     )
 
     print("Solving...")
-    model.solve(url=None, key=None)
+    model.solve()
 
-    model.print_solution()
-
+    #model.print_solution()
+    plot_solution(points)
 
 def read_turbines_file(name):
     file = open("../data/" + name, "r")
     points = []
 
     for index, line in enumerate(file):
-        if index > 5: break
+        if index > 20: break
         words = list(map(int, line.split()))
         points.append(
             Point(words[0], words[1], words[2])
@@ -130,6 +135,93 @@ def get_distance(point1, point2):
         +
         (point1.y - point2.y)**2
     )
+
+def plot_solution(nodes):
+    G = nx.Graph()
+
+    for index, node in enumerate(nodes):
+        G.add_node(index, pos=(node.x, node.y))
+
+    pos = nx.get_node_attributes(G, 'pos')
+
+    dmin = 1
+    ncenter = 0
+
+    for n in pos:
+        x, y = pos[n]
+        d = (x-0.5)**2+(y-0.5)**2
+        if d < dmin:
+            ncenter=n
+            dmin=d
+
+    p = nx.single_source_shortest_path_length(G, ncenter)
+
+    edge_trace = Scatter(
+        x = [],
+        y = [],
+        line = Line(width=1,color='#888'),
+        hoverinfo = 'none',
+        mode = 'lines'
+    )
+
+    for edge in G.edges():
+        x0, y0 = G.node[edge[0]]['pos']
+        x1, y1 = G.node[edge[1]]['pos']
+        edge_trace['x'] += [x0, x1, None]
+        edge_trace['y'] += [y0, y1, None]
+
+    node_trace = Scatter(
+        x=[],
+        y=[],
+        text=["Substation"],
+        mode='markers',
+        hoverinfo='text',
+        marker=Marker(
+            showscale = True,
+            # colorscale options
+            # 'Greys' | 'Greens' | 'Bluered' | 'Hot' | 'Picnic' | 'Portland' |
+            # Jet' | 'RdBu' | 'Blackbody' | 'Earth' | 'Electric' | 'YIOrRd' | 'YIGnBu'
+            colorscale='Greens',
+            reversescale=True,
+            color=[],
+            size=20,
+            colorbar=dict(
+                thickness=15,
+                title='Node Connections',
+                xanchor='left',
+                titleside='right'
+            ),
+            line=dict(width=2))
+        )
+
+    for node in G.nodes():
+        x, y = G.node[node]['pos']
+        node_trace['x'].append(x)
+        node_trace['y'].append(y)
+
+    for node, adjacencies in enumerate(G.adjacency()):
+        node_trace['marker']['color'].append(len(adjacencies))
+        node_info = '# of connections: '+str(len(adjacencies))
+        node_trace['text'].append(node_info)
+
+    fig = Figure(data=Data([edge_trace, node_trace]),
+             layout=Layout(
+                title='<br>Wind Farm',
+                titlefont = dict(size=16),
+                showlegend = False,
+                hovermode = 'closest',
+                margin = dict(b=20,l=5,r=5,t=40),
+                annotations=[ dict(
+                    showarrow = False,
+                    xref="paper", yref="paper",
+                    x=0.005, y=-0.002 ) ],
+                xaxis=XAxis(showgrid=False, zeroline=False, showticklabels=False),
+                yaxis=YAxis(showgrid=False, zeroline=False, showticklabels=False)))
+
+    py.plot(fig, filename='networkx.html')
+
+def ypos(i, j):
+    return
 
 if __name__ == "__main__":
     main()
