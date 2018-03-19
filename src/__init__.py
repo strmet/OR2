@@ -10,6 +10,7 @@ Edge = namedtuple("Edge", ["source", "destination"])
 Point = namedtuple("Point", ["x", "y", "power"])
 Cable = namedtuple("Cable", ["capacity", "price", "max_usage"])
 
+CableSol = namedtuple("CableSol", ["source", "destination", "capacity"])
 
 def main():
 
@@ -56,11 +57,11 @@ def main():
     # No self-loops constraints
     for i in range(inst. n_nodes):
         var = model.get_var_by_name("y_{0}.{1}".format(i + 1, i + 1))
-        model.add_constraint(var == 0, ctname="y_{0}.{1}=0".format(i + 1, i + 1))
+        model.add_constraint(var == 0)
 
     for i in range(inst.n_nodes):
         var = model.get_var_by_name("f_{0}.{1}".format(i + 1, i + 1))
-        model.add_constraint(var == 0, ctname="y_{0}.{1}=0".format(i + 1, i + 1))
+        model.add_constraint(var == 0)
 
     # Out- degree constraints
     for h in range(len(points)):
@@ -113,12 +114,21 @@ def main():
             for k in range(inst.num_cables) for i in range(inst.n_nodes) for j in range(inst.n_nodes)
         )
     )
-    print(model.get_objective_expr())
+
+    model.get_objective_expr()
     model.export_as_lp("model.lp")
     #print("Solving...")
-    #model.solve()
+    model.solve()
 
-    #model.print_solution()
+    sol = []
+    for edge in edges:
+        for k in range(inst.num_cables):
+            val = model.solution.get_value("x_{0}.{1}.{2}".format(edge.source + 1, edge.destination + 1, k + 1))
+            if val > 0.5:
+                sol.append(CableSol(edge.source + 1, edge.destination + 1, k + 1))
+    print(len(sol))
+    model.print_solution()
+    print(sol)
     #plot_solution(points, inst)
 
 def read_turbines_file(inst):
@@ -126,7 +136,7 @@ def read_turbines_file(inst):
     points = []
 
     for index, line in enumerate(file):
-        #if index > 20: break
+        if index > 20: break
         words = list(map(int, line.split()))
         points.append(
             Point(words[0], words[1], words[2])
