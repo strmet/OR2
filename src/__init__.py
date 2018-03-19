@@ -129,7 +129,7 @@ def main():
     print(len(sol))
     model.print_solution()
     print(sol)
-    #plot_solution(points, inst)
+    plot_solution(points, inst, sol)
 
 def read_turbines_file(inst):
     file = open("../data/" + inst.turb_file, "r")
@@ -152,7 +152,7 @@ def read_cables_file(inst):
 
     cables = []
     for index, line in enumerate(file):
-        if index > 3: break
+        if index > 5: break
         words = line.split()
         cables.append(
             Cable(int(words[0]), float(words[1]), int(words[0]))
@@ -171,11 +171,14 @@ def get_distance(point1, point2):
     )
 
 
-def plot_solution(nodes, inst):
+def plot_solution(nodes, inst, edges):
     G = nx.Graph()
 
     for index, node in enumerate(nodes):
-        G.add_node(index, pos=(node.x, node.y))
+        G.add_node(index + 1, pos=(node.x, node.y))
+
+    for edge in edges:
+        G.add_edge(edge.source, edge.destination)
 
     pos = nx.get_node_attributes(G, 'pos')
 
