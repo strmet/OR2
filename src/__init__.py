@@ -31,21 +31,19 @@ def main():
     inst.y_start = model.get_statistics().number_of_variables
     for index, edge in enumerate(edges):
         model.binary_var(name="y_{0}.{1}".format(edge.source + 1, edge.destination + 1))
-
         if inst.debug_mode:
             if ypos(index, inst) != model.get_statistics().number_of_variables - 1:
                 raise NameError('Number of variables and index do not match')
 
-    # Add x_i.j variables
+    # Add f_i.j variables
     inst.f_start = model.get_statistics().number_of_variables
     for index, edge in enumerate(edges):
         model.continuous_var(name="f_{0}.{1}".format(edge.source + 1, edge.destination + 1))
-
         if inst.debug_mode:
             if fpos(index, inst) != model.get_statistics().number_of_variables - 1:
                 raise NameError('Number of variables and index do not match')
 
-    # Add f_i.j.k variables
+    # Add x_i.j.k variables
     inst.x_start = model.get_statistics().number_of_variables
     for index, edge in enumerate(edges):
         for k in range(inst.num_cables):
@@ -55,6 +53,7 @@ def main():
             if xpos(index, k, inst) != model.get_statistics().number_of_variables - 1:
                 raise NameError('Number of variables and index do not match')
 
+    # No self-loops constraints
     for i in range(inst. n_nodes):
         var = model.get_var_by_name("y_{0}.{1}".format(i + 1, i + 1))
         model.add_constraint(var == 0, ctname="y_{0}.{1}=0".format(i + 1, i + 1))
@@ -63,6 +62,7 @@ def main():
         var = model.get_var_by_name("f_{0}.{1}".format(i + 1, i + 1))
         model.add_constraint(var == 0, ctname="y_{0}.{1}=0".format(i + 1, i + 1))
 
+    # Out- degree constraints
     for h in range(len(points)):
         if points[h].power < -0.5:
             model.add_constraint(
@@ -77,8 +77,9 @@ def main():
                 1
             )
 
+    # Flow balancing constraint
     for h in range(len(points)):
-        if points[h].power > 0.5:
+        if points[h].power > - 0.5:
             model.add_constraint(
                 model.sum(model.get_var_by_name("f_{0}.{1}".format(h + 1, j + 1)) for j in range(inst.n_nodes))
                 ==
@@ -86,6 +87,7 @@ def main():
                 + points[h].power
             )
 
+    # Avoid double cable beetween two points
     for edge in edges:
         model.add_constraint(
             model.get_var_by_name("y_{0}.{1}".format(edge.source + 1, edge.destination + 1))
@@ -93,13 +95,7 @@ def main():
             model.sum(model.get_var_by_name("x_{0}.{1}.{2}".format(edge.source + 1, edge.destination + 1, k + 1)) for k in range(inst.num_cables))
         )
 
-    for edge in edges:
-        model.add_constraint(
-            model.get_var_by_name("y_{0}.{1}".format(edge.source + 1, edge.destination + 1))
-            ==
-            model.sum(model.get_var_by_name("x_{0}.{1}.{2}".format(edge.source + 1, edge.destination + 1, k + 1)) for k in range(inst.num_cables))
-        )
-
+    # Guarantee that the cable is enough for the connection
     for edge in edges:
         model.add_constraint(
             model.sum(
@@ -117,7 +113,7 @@ def main():
             for k in range(inst.num_cables) for i in range(inst.n_nodes) for j in range(inst.n_nodes)
         )
     )
-
+    print(model.get_objective_expr())
     model.export_as_lp("model.lp")
     #print("Solving...")
     #model.solve()
