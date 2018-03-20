@@ -6,12 +6,14 @@ from plotly.graph_objs import *
 import networkx as nx
 import matplotlib.pyplot as plt
 
-
+# Named tuples describing input data
 Edge = namedtuple("Edge", ["source", "destination"])
 Point = namedtuple("Point", ["x", "y", "power"])
 Cable = namedtuple("Cable", ["capacity", "price", "max_usage"])
 
+# Named tuple to store result in the graph form
 CableSol = namedtuple("CableSol", ["source", "destination", "capacity"])
+
 
 def main():
 
@@ -21,8 +23,8 @@ def main():
     inst.cbl_file = 'wf01/wf01_cb01.cbl'
     inst.name = 'Wind Farm wf01'
 
-    inst = read_turbines_file(inst)
-    inst = read_cables_file(inst)
+    read_turbines_file(inst)
+    read_cables_file(inst)
 
     edges = [Edge(i, j) for i in range(inst.n_nodes) for j in range(inst.n_nodes)]
 
@@ -55,11 +57,12 @@ def main():
             if xpos(index, k, inst) != model.get_statistics().number_of_variables - 1:
                 raise NameError('Number of variables and index do not match')
 
-    # No self-loops constraints
+    # No self-loops constraints on y_i.i variables
     for i in range(inst. n_nodes):
         var = model.get_var_by_name("y_{0}.{1}".format(i + 1, i + 1))
         model.add_constraint(var == 0)
 
+    # No self-loops constraints on f_i.i variables
     for i in range(inst.n_nodes):
         var = model.get_var_by_name("f_{0}.{1}".format(i + 1, i + 1))
         model.add_constraint(var == 0)
@@ -116,8 +119,8 @@ def main():
         )
     )
 
-    model.get_objective_expr()
-    model.export_as_lp("model.lp")
+    #model.export_as_lp("model.lp")
+
     print("Solving...")
     model.solve()
 
@@ -128,11 +131,22 @@ def main():
             if val > 0.5:
                 sol.append(CableSol(edge.source + 1, edge.destination + 1, k + 1))
 
-    model.print_solution()
+    #model.print_solution()
 
     plot_solution(inst, sol)
 
+
 def read_turbines_file(inst):
+
+    """
+    py:function:: read_turbines_file(inst)
+
+    Read the turbines file
+
+    :param class inst: Instance of the problem
+
+    """
+
     file = open("../data/" + inst.turb_file, "r")
     points = []
 
@@ -146,10 +160,18 @@ def read_turbines_file(inst):
     file.close()
     inst.n_nodes = len(points)
     inst.points = points
-    return inst
 
 
 def read_cables_file(inst):
+
+    """
+    py:function:: read_cables_file(inst)
+    Read the cables file
+
+    :param class inst: Instance of the problem
+
+    """
+
     file = open("../data/" + inst.cbl_file, "r")
 
     cables = []
@@ -163,10 +185,19 @@ def read_cables_file(inst):
     file.close()
     inst.num_cables = len(cables)
     inst.cables = cables
-    return inst
 
 
 def get_distance(point1, point2):
+
+    """
+    py:function:: get_distance(point1, point2)
+    Get the distance between two poins
+
+    :param point1 int: First point
+    :param point1 int: Second point
+
+    """
+
     return math.sqrt(
         (point1.x - point2.x)**2
         +
@@ -175,6 +206,17 @@ def get_distance(point1, point2):
 
 
 def plot_solution(inst, edges):
+
+    """
+    py:function:: plot_solution(inst, edges)
+
+    Plot the solution using the plot.ly library
+
+    :param inst instance: Instance of the problem
+    :param edges: List of edges given back by CPLEX
+    :type edges: List of CableSol
+
+    """
     G = nx.Graph()
 
     for index, node in enumerate(inst.points):
@@ -234,7 +276,18 @@ def plot_solution(inst, edges):
     py.plot(fig, filename='wind_farm.html')
 
 
-def plot_easy(inst, edges):
+def plot_high_quality(inst, edges):
+
+    """
+    py:function:: plot_high_quality(inst, edges)
+
+    Plot the solution using standard libraries
+
+    :param inst: First point
+    :param edges: List of edges given back by CPLEX
+    :type edges: List of CableSol
+
+    """
 
     G = nx.Graph()
 
@@ -253,19 +306,56 @@ def plot_easy(inst, edges):
     plt.show()
 
 def ypos(offset, inst):
+
+    """
+    py:function:: ypos(offset, inst)
+
+    Plot the solution using standard libraries
+
+    :param offset int: Offset w.r.t ystart and the edge indexed by (i, j)
+    :param inst: Instance of the problem
+
+    """
+
     return inst.y_start + offset
 
 
 def fpos(offset, inst):
+
+    """
+    py:function:: fpos(offset, inst)
+
+    Plot the solution using standard libraries
+
+    :param offset int: Offset w.r.t fstart and the edge indexed by (i, j)
+    :param inst: Instance of the problem
+
+    """
     return inst.f_start + offset
 
 
 def xpos(offset, k, inst):
+
+    """
+    py:function:: xpos(offset, k, inst)
+
+    Plot the solution using standard libraries
+
+    :param offset int: Offset w.r.t xstart and the edge indexed by (i, j)
+    :param k int: index of the cable considered
+    :param inst: Instance of the problem
+
+    """
     return inst.x_start + offset * inst.num_cables + k
 
 
 class instance():
+    """
+    py:class:: instance()
 
+    This class stores all the useful information about input data and parameters
+
+    """
     ## Model
     name = ''
     y_start = 0
