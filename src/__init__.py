@@ -4,6 +4,7 @@ import math
 import plotly.offline as py
 from plotly.graph_objs import *
 import networkx as nx
+import matplotlib.pyplot as plt
 
 
 Edge = namedtuple("Edge", ["source", "destination"])
@@ -20,8 +21,8 @@ def main():
     inst.cbl_file = 'wf01/wf01_cb01.cbl'
     inst.name = 'Wind Farm wf01'
 
-    points, inst = read_turbines_file(inst)
-    cables, inst = read_cables_file(inst)
+    inst = read_turbines_file(inst)
+    inst = read_cables_file(inst)
 
     edges = [Edge(i, j) for i in range(inst.n_nodes) for j in range(inst.n_nodes)]
 
@@ -64,8 +65,8 @@ def main():
         model.add_constraint(var == 0)
 
     # Out- degree constraints
-    for h in range(len(points)):
-        if points[h].power < -0.5:
+    for h in range(len(inst.points)):
+        if inst.points[h].power < -0.5:
             model.add_constraint(
                 model.sum(model.get_var_by_name("y_{0}.{1}".format(h + 1, j + 1)) for j in range(inst.n_nodes))
                 ==
@@ -79,16 +80,16 @@ def main():
             )
 
     # Flow balancing constraint
-    for h in range(len(points)):
-        if points[h].power > - 0.5:
+    for h in range(len(inst.points)):
+        if inst.points[h].power > - 0.5:
             model.add_constraint(
                 model.sum(model.get_var_by_name("f_{0}.{1}".format(h + 1, j + 1)) for j in range(inst.n_nodes))
                 ==
                 model.sum(model.get_var_by_name("f_{0}.{1}".format(j + 1, h + 1)) for j in range(inst.n_nodes))
-                + points[h].power
+                + inst.points[h].power
             )
 
-    # Avoid double cable beetween two points
+    # Avoid double cable between two points
     for edge in edges:
         model.add_constraint(
             model.get_var_by_name("y_{0}.{1}".format(edge.source + 1, edge.destination + 1))
@@ -100,7 +101,7 @@ def main():
     for edge in edges:
         model.add_constraint(
             model.sum(
-                model.get_var_by_name("x_{0}.{1}.{2}".format(edge.source + 1, edge.destination + 1, k + 1)) * cables[k].capacity
+                model.get_var_by_name("x_{0}.{1}.{2}".format(edge.source + 1, edge.destination + 1, k + 1)) * inst.cables[k].capacity
                 for k in range(inst.num_cables)
             )
             >=
@@ -110,14 +111,14 @@ def main():
     # Objective function
     model.minimize(
         model.sum(
-            cables[k].price * get_distance(points[i], points[j]) * model.get_var_by_name("x_{0}.{1}.{2}".format(i + 1, j + 1, k + 1))
+            inst.cables[k].price * get_distance(inst.points[i], inst.points[j]) * model.get_var_by_name("x_{0}.{1}.{2}".format(i + 1, j + 1, k + 1))
             for k in range(inst.num_cables) for i in range(inst.n_nodes) for j in range(inst.n_nodes)
         )
     )
 
     model.get_objective_expr()
     model.export_as_lp("model.lp")
-    #print("Solving...")
+    print("Solving...")
     model.solve()
 
     sol = []
@@ -126,10 +127,10 @@ def main():
             val = model.solution.get_value("x_{0}.{1}.{2}".format(edge.source + 1, edge.destination + 1, k + 1))
             if val > 0.5:
                 sol.append(CableSol(edge.source + 1, edge.destination + 1, k + 1))
-    print(len(sol))
+
     model.print_solution()
-    print(sol)
-    plot_solution(points, inst, sol)
+
+    plot_solution(inst, sol)
 
 def read_turbines_file(inst):
     file = open("../data/" + inst.turb_file, "r")
@@ -144,7 +145,8 @@ def read_turbines_file(inst):
 
     file.close()
     inst.n_nodes = len(points)
-    return points, inst
+    inst.points = points
+    return inst
 
 
 def read_cables_file(inst):
@@ -152,15 +154,16 @@ def read_cables_file(inst):
 
     cables = []
     for index, line in enumerate(file):
-        if index > 5: break
+        if index > 10: break
         words = line.split()
         cables.append(
-            Cable(int(words[0]), float(words[1]), int(words[0]))
+            Cable(int(words[0]), float(words[1]), int(words[2]))
         )
 
     file.close()
     inst.num_cables = len(cables)
-    return cables, inst
+    inst.cables = cables
+    return inst
 
 
 def get_distance(point1, point2):
@@ -171,35 +174,21 @@ def get_distance(point1, point2):
     )
 
 
-def plot_solution(nodes, inst, edges):
+def plot_solution(inst, edges):
     G = nx.Graph()
 
-    for index, node in enumerate(nodes):
-        G.add_node(index + 1, pos=(node.x, node.y))
+    for index, node in enumerate(inst.points):
+        G.add_node(index, pos=(node.x, node.y))
 
     for edge in edges:
-        G.add_edge(edge.source, edge.destination)
-
-    pos = nx.get_node_attributes(G, 'pos')
-
-    dmin = 1
-    ncenter = 0
-
-    for n in pos:
-        x, y = pos[n]
-        d = (x-0.5)**2+(y-0.5)**2
-        if d < dmin:
-            ncenter=n
-            dmin=d
-
-    p = nx.single_source_shortest_path_length(G, ncenter)
+        G.add_edge(edge.source - 1, edge.destination - 1, weight=edge.capacity)
 
     edge_trace = Scatter(
-        x = [],
-        y = [],
-        line = Line(width=1,color='#888'),
-        hoverinfo = 'none',
-        mode = 'lines'
+        x=[],
+        y=[],
+        line=Line(width=1, color='#888'),
+        hoverinfo='none',
+        mode='lines'
     )
 
     for edge in G.edges():
@@ -211,54 +200,57 @@ def plot_solution(nodes, inst, edges):
     node_trace = Scatter(
         x=[],
         y=[],
-        text=["Substation"],
+        text=["Substation #{0}".format(i + 1) if inst.points[i].power < -0.5 else "Turbine #{0}".format(i + 1) for i in range(inst.n_nodes)],
         mode='markers',
         hoverinfo='text',
         marker=Marker(
-            showscale = True,
-            # colorscale options
-            # 'Greys' | 'Greens' | 'Bluered' | 'Hot' | 'Picnic' | 'Portland' |
-            # Jet' | 'RdBu' | 'Blackbody' | 'Earth' | 'Electric' | 'YIOrRd' | 'YIGnBu'
+            showscale = False,
             colorscale='Greens',
             reversescale=True,
             color=[],
             size=10,
-            colorbar=dict(
-                thickness=15,
-                title='Node Connections',
-                xanchor='left',
-                titleside='right'
-            ),
             line=dict(width=2))
         )
 
+    # Prepare data structure for plotting (x, y, color)
     for node in G.nodes():
         x, y = G.node[node]['pos']
         node_trace['x'].append(x)
         node_trace['y'].append(y)
+        node_trace['marker']['color'].append("#32CD32")
 
-    for node, adjacencies in enumerate(G.adjacency()):
-        node_trace['marker']['color'].append(len(adjacencies))
-        node_info = '# of connections: '+str(len(adjacencies))
-        node_trace['text'].append(node_info)
-
+    # Create figure
     fig = Figure(data=Data([edge_trace, node_trace]),
              layout=Layout(
-                title='<br>'+inst.name,
+                title='<br><b style="font-size:20px>'+inst.name+'</b>',
                 titlefont=dict(size=16),
                 showlegend=False,
                 hovermode='closest',
                 margin=dict(b=20,l=5,r=5,t=40),
-                annotations=[dict(
-                    showarrow = False,
-                    xref="paper", yref="paper",
-                    x=0.005, y=-0.002 ) ],
                 xaxis=XAxis(showgrid=False, zeroline=False, showticklabels=False),
                 yaxis=YAxis(showgrid=False, zeroline=False, showticklabels=False))
              )
 
-    py.plot(fig, filename='networkx.html')
+    py.plot(fig, filename='wind_farm.html')
 
+
+def plot_easy(inst, edges):
+
+    G = nx.Graph()
+
+    for index, node in enumerate(inst.points):
+        G.add_node(index, pos=(node.x, node.y))
+
+
+    for edge in edges:
+        G.add_edge(edge.source - 1, edge.destination - 1)
+
+    # draw graph
+    pos = nx.shell_layout(G)
+    nx.draw(G, pos)
+
+    # show graph
+    plt.show()
 
 def ypos(offset, inst):
     return inst.y_start + offset
@@ -285,6 +277,8 @@ class instance():
     turb_file = ''
     n_nodes = 0
     num_cables = 0
+    points = []
+    cables = []
 
     ## Parameters
     #model_type
