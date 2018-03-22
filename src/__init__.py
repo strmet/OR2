@@ -17,7 +17,7 @@ CableSol = namedtuple("CableSol", ["source", "destination", "capacity"])
 
 def main():
 
-    inst = instance()
+    inst = Instance()
 
     inst.turb_file = 'wf01/wf01.turb'
     inst.cbl_file = 'wf01/wf01_cb01.cbl'
@@ -133,7 +133,7 @@ def main():
 
     #model.print_solution()
 
-    plot_solution(inst, sol)
+    plot_high_quality(inst, sol, export=False)
 
 
 def read_turbines_file(inst):
@@ -217,7 +217,8 @@ def plot_solution(inst, edges):
     :type edges: List of CableSol
 
     """
-    G = nx.Graph()
+
+    G = nx.DiGraph()
 
     for index, node in enumerate(inst.points):
         G.add_node(index, pos=(node.x, node.y))
@@ -263,20 +264,21 @@ def plot_solution(inst, edges):
 
     # Create figure
     fig = Figure(data=Data([edge_trace, node_trace]),
-             layout=Layout(
-                title='<br><b style="font-size:20px>'+inst.name+'</b>',
-                titlefont=dict(size=16),
-                showlegend=False,
-                hovermode='closest',
-                margin=dict(b=20,l=5,r=5,t=40),
-                xaxis=XAxis(showgrid=False, zeroline=False, showticklabels=False),
-                yaxis=YAxis(showgrid=False, zeroline=False, showticklabels=False))
+                    layout=Layout(
+                        title='<br><b style="font-size:20px>'+inst.name+'</b>',
+                        titlefont=dict(size=16),
+                        showlegend=False,
+                        hovermode='closest',
+                        margin=dict(b=20,l=5,r=5,t=40),
+                        xaxis=XAxis(showgrid=False, zeroline=False, showticklabels=False),
+                        yaxis=YAxis(showgrid=False, zeroline=False, showticklabels=False)
+                    )
              )
 
     py.plot(fig, filename='wind_farm.html')
 
 
-def plot_high_quality(inst, edges):
+def plot_high_quality(inst, edges, export=False):
 
     """
     py:function:: plot_high_quality(inst, edges)
@@ -289,19 +291,33 @@ def plot_high_quality(inst, edges):
 
     """
 
-    G = nx.Graph()
+    G = nx.DiGraph()
+
+    mapping = {}
+
+    for i in range(inst.n_nodes):
+        if (inst.points[i].power < -0.5):
+            mapping[i] = 'S{0}'.format(i + 1)
+        else:
+            mapping[i] = 'T{0}'.format(i + 1)
 
     for index, node in enumerate(inst.points):
-        G.add_node(index, pos=(node.x, node.y))
-
+        G.add_node(index)
 
     for edge in edges:
         G.add_edge(edge.source - 1, edge.destination - 1)
 
-    # draw graph
-    pos = nx.shell_layout(G)
-    nx.draw(G, pos)
+    pos = {i: (point.x, point.y) for i, point in enumerate(inst.points)}
 
+    # draw graph
+    nx.draw(G, pos, with_labels=True, node_size=1500, alpha=0.3, arrows=True, labels=mapping, node_color='g')
+
+    G = nx.relabel_nodes(G, mapping)
+
+    if (export == True):
+        plt.savefig('foo.pdf')
+
+    plt.autoscale()
     # show graph
     plt.show()
 
@@ -349,7 +365,8 @@ def xpos(offset, k, inst):
     return inst.x_start + offset * inst.num_cables + k
 
 
-class instance():
+class Instance:
+
     """
     py:class:: instance()
 
