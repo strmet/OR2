@@ -41,12 +41,10 @@ def main():
             if val > 0.5:
                 sol.append(CableSol(edge.source + 1, edge.destination + 1, k + 1))
 
-    plot_solution(inst, sol)
+    #plot_solution(inst, sol)
 
-    print(get_distance(point1=inst.points[12], point2=inst.points[11]))
-    plot_high_quality(inst, sol)
 
-    print(get_distance(point1=inst.points[11], point2=inst.points[19]))
+    plot_high_quality(inst, sol, export=True)
 
 def build_model_classical_cplex(inst):
     model = cplex.Cplex()
@@ -269,9 +267,6 @@ def build_model_docplex(inst):
         )
     )
 
-    #plot_high_quality(inst, sol, export=False)
-    #model.export_as_lp("model_doc.lp")
-
     return model
 
 def read_turbines_file(inst):
@@ -400,6 +395,7 @@ def plot_solution(inst, edges):
         node_trace['y'].append(y)
         node_trace['marker']['color'].append("#32CD32")
 
+
     # Create figure
     fig = Figure(data=Data([edge_trace, node_trace]),
                     layout=Layout(
@@ -409,8 +405,8 @@ def plot_solution(inst, edges):
                         hovermode='closest',
                         margin=dict(b=20,l=5,r=5,t=40),
                         xaxis=XAxis(showgrid=False, zeroline=False, showticklabels=False),
-                        yaxis=YAxis(showgrid=False, zeroline=False, showticklabels=False)
-                    )
+                        yaxis=dict(scaleanchor="x", scaleratio=1,showgrid=False, zeroline=False, showticklabels=False)
+                    ),
              )
 
     py.plot(fig, filename='wind_farm.html')
@@ -447,15 +443,18 @@ def plot_high_quality(inst, edges, export=False):
 
     pos = {i: (point.x, point.y) for i, point in enumerate(inst.points)}
 
+    # Avoid re scaling of axes
+    plt.gca().set_aspect('equal', adjustable='box')
+
     # draw graph
     nx.draw(G, pos, with_labels=True, node_size=1500, alpha=0.3, arrows=True, labels=mapping, node_color='g')
 
     G = nx.relabel_nodes(G, mapping)
 
     if (export == True):
-        plt.savefig('foo.pdf')
+        plt.savefig('../imgs/foo.svg')
 
-    plt.autoscale()
+
     # show graph
     plt.show()
 
