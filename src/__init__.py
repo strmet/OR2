@@ -5,6 +5,7 @@ import plotly.offline as py
 from plotly.graph_objs import *
 import networkx as nx
 import matplotlib.pyplot as plt
+import cplex
 
 # Named tuples describing input data
 Edge = namedtuple("Edge", ["source", "destination"])
@@ -18,6 +19,7 @@ CableSol = namedtuple("CableSol", ["source", "destination", "capacity"])
 def main():
 
     inst = Instance()
+    inst.debug_mode = True
 
     inst.turb_file = 'wf01/wf01.turb'
     inst.cbl_file = 'wf01/wf01_cb01.cbl'
@@ -26,6 +28,154 @@ def main():
     read_turbines_file(inst)
     read_cables_file(inst)
 
+    print("Solving...")
+    model = build_model_classical_cplex(inst)
+    model.solve()
+
+    edges = [Edge(i, j) for i in range(inst.n_nodes) for j in range(inst.n_nodes)]
+
+    sol = []
+    for edge in edges:
+        for k in range(inst.num_cables):
+            val = model.solution.get_values("x({0},{1},{2})".format(edge.source + 1, edge.destination + 1, k + 1))
+            if val > 0.5:
+                sol.append(CableSol(edge.source + 1, edge.destination + 1, k + 1))
+
+    plot_solution(inst, sol)
+
+    print(get_distance(point1=inst.points[12], point2=inst.points[11]))
+    plot_high_quality(inst, sol)
+
+    print(get_distance(point1=inst.points[11], point2=inst.points[19]))
+
+def build_model_classical_cplex(inst):
+    model = cplex.Cplex()
+
+    model.set_problem_name(inst.name)
+    model.objective.set_sense(model.objective.sense.minimize)
+
+    edges = [Edge(i, j) for i in range(inst.n_nodes) for j in range(inst.n_nodes)]
+
+    # Add y(i,j) variables
+    inst.y_start = model.variables.get_num()
+    name_y_edges = ["y({0},{1})".format(i + 1, j + 1) for i in range(inst.n_nodes) for j in range(inst.n_nodes)]
+
+    for index, edge in enumerate(name_y_edges):
+        model.variables.add(
+            types=[model.variables.type.binary],
+            names=[name_y_edges[index]],
+                            )
+        if inst.debug_mode:
+            if ypos(index, inst) != model.variables.get_num() - 1:
+                raise NameError('Number of variables and index do not match')
+
+    # Add f(i,j) variables
+    inst.f_start = model.variables.get_num()
+    name_f_edges = ["f({0},{1})".format(i + 1, j + 1) for i in range(inst.n_nodes) for j in range(inst.n_nodes)]
+
+    for index, edge in enumerate(name_f_edges):
+        model.variables.add(
+            types=[model.variables.type.continuous],
+            names=[name_f_edges[index]]
+                            )
+        if inst.debug_mode:
+            if fpos(index, inst) != model.variables.get_num() - 1:
+                raise NameError('Number of variables and index do not match')
+
+    # Add x(i,j,k) variables
+    inst.x_start = model.variables.get_num()
+
+    for index, edge in enumerate(edges):
+        for k in range(inst.num_cables):
+            model.variables.add(
+                types=[model.variables.type.binary],
+                names=["x({0},{1},{2})".format(edge.source + 1, edge.destination + 1, k + 1)],
+                obj=[inst.cables[k].price * get_distance(inst.points[edge.source], inst.points[edge.destination])]
+            )
+            if inst.debug_mode:
+                if xpos(index, k, inst) != model.variables.get_num() - 1:
+                    raise NameError('Number of variables and index do not match')
+
+    # No self-loop constraint
+    for i in range(inst. n_nodes):
+        model.variables.set_upper_bounds([("y({0},{1})".format(i + 1, i + 1), 0)])
+
+    for i in range(inst. n_nodes):
+        model.variables.set_upper_bounds([("f({0},{1})".format(i + 1, i + 1), 0)])
+
+
+    # Out- degree constraints
+    for h in range(len(inst.points)):
+        if inst.points[h].power < -0.5:
+            model.linear_constraints.add(
+                lin_expr=[cplex.SparsePair(
+                                ind=["y({0},{1})".format(h + 1, j + 1) for j in range(inst.n_nodes)],
+                                val=[1.0] * inst.n_nodes
+                )],
+                senses=["E"],
+                rhs=[0]
+            )
+        else:
+            model.linear_constraints.add(
+                lin_expr=[cplex.SparsePair(
+                                ind=["y({0},{1})".format(h + 1, j + 1) for j in range(inst.n_nodes)],
+                                val=[1.0] * inst.n_nodes
+                )],
+                senses=["E"],
+                rhs=[1]
+            )
+
+
+    # Flow balancing constraint
+    for h in range(len(inst.points)):
+        if inst.points[h].power > - 0.5:
+            sum = ["f({0},{1})".format(h + 1, j + 1) for j in range(inst.n_nodes)if h != j] \
+                  + \
+                  ["f({0},{1})".format(j + 1, h + 1) for j in range(inst.n_nodes) if h != j]
+            coefficients = [1] * (inst.n_nodes - 1) + [-1] * (inst.n_nodes - 1)
+            model.linear_constraints.add(
+                lin_expr=[cplex.SparsePair(
+                            ind=sum,
+                            val=coefficients,
+                )],
+                senses=["E"],
+                rhs=[inst.points[h].power]
+            )
+
+    # Avoid double cable between two points
+    for edge in edges:
+        sum = ["y({0},{1})".format(edge.source + 1, edge.destination + 1)] \
+               + \
+              ["x({0},{1},{2})".format(edge.source + 1, edge.destination + 1, k + 1) for k in range(inst.num_cables)]
+        coefficients = [1] + [-1] * (inst.num_cables)
+        model.linear_constraints.add(
+            lin_expr=[cplex.SparsePair(
+                        ind=sum,
+                        val=coefficients,
+            )],
+            senses=["E"],
+            rhs=[0]
+        )
+
+    # Guarantee that the cable is enough for the connection
+    for edge in edges:
+        sum = ["f({0},{1})".format(edge.source + 1, edge.destination + 1)] \
+               + \
+              ["x({0},{1},{2})".format(edge.source + 1, edge.destination + 1, k + 1) for k in range(inst.num_cables)]
+        coefficients = [-1] + [inst.cables[k].capacity for k in range(inst.num_cables)]
+        model.linear_constraints.add(
+            lin_expr=[cplex.SparsePair(
+                        ind=sum,
+                        val=coefficients,
+            )],
+            senses=["G"],
+            rhs=[0]
+        )
+
+    return model
+
+
+def build_model_docplex(inst):
     edges = [Edge(i, j) for i in range(inst.n_nodes) for j in range(inst.n_nodes)]
 
     model = Model(name=inst.name)
@@ -34,7 +184,7 @@ def main():
     # Add y_i.j variables
     inst.y_start = model.get_statistics().number_of_variables
     for index, edge in enumerate(edges):
-        model.binary_var(name="y_{0}.{1}".format(edge.source + 1, edge.destination + 1))
+        model.binary_var(name="y({0},{1})".format(edge.source + 1, edge.destination + 1))
         if inst.debug_mode:
             if ypos(index, inst) != model.get_statistics().number_of_variables - 1:
                 raise NameError('Number of variables and index do not match')
@@ -42,7 +192,7 @@ def main():
     # Add f_i.j variables
     inst.f_start = model.get_statistics().number_of_variables
     for index, edge in enumerate(edges):
-        model.continuous_var(name="f_{0}.{1}".format(edge.source + 1, edge.destination + 1))
+        model.continuous_var(name="f({0},{1})".format(edge.source + 1, edge.destination + 1))
         if inst.debug_mode:
             if fpos(index, inst) != model.get_statistics().number_of_variables - 1:
                 raise NameError('Number of variables and index do not match')
@@ -51,7 +201,7 @@ def main():
     inst.x_start = model.get_statistics().number_of_variables
     for index, edge in enumerate(edges):
         for k in range(inst.num_cables):
-            model.binary_var(name="x_{0}.{1}.{2}".format(edge.source + 1, edge.destination + 1, k + 1))
+            model.binary_var(name="x({0},{1},{2})".format(edge.source + 1, edge.destination + 1, k + 1))
 
         if inst.debug_mode:
             if xpos(index, k, inst) != model.get_statistics().number_of_variables - 1:
@@ -59,25 +209,25 @@ def main():
 
     # No self-loops constraints on y_i.i variables
     for i in range(inst. n_nodes):
-        var = model.get_var_by_name("y_{0}.{1}".format(i + 1, i + 1))
+        var = model.get_var_by_name("y({0},{1})".format(i + 1, i + 1))
         model.add_constraint(var == 0)
 
     # No self-loops constraints on f_i.i variables
     for i in range(inst.n_nodes):
-        var = model.get_var_by_name("f_{0}.{1}".format(i + 1, i + 1))
+        var = model.get_var_by_name("f({0},{1})".format(i + 1, i + 1))
         model.add_constraint(var == 0)
 
-    # Out- degree constraints
+    # Out-degree constraints
     for h in range(len(inst.points)):
         if inst.points[h].power < -0.5:
             model.add_constraint(
-                model.sum(model.get_var_by_name("y_{0}.{1}".format(h + 1, j + 1)) for j in range(inst.n_nodes))
+                model.sum(model.get_var_by_name("y({0},{1})".format(h + 1, j + 1)) for j in range(inst.n_nodes))
                 ==
                 0
             )
         else:
             model.add_constraint(
-                model.sum(model.get_var_by_name("y_{0}.{1}".format(h + 1, j + 1)) for j in range(inst.n_nodes))
+                model.sum(model.get_var_by_name("y({0},{1})".format(h + 1, j + 1)) for j in range(inst.n_nodes))
                 ==
                 1
             )
@@ -86,55 +236,43 @@ def main():
     for h in range(len(inst.points)):
         if inst.points[h].power > - 0.5:
             model.add_constraint(
-                model.sum(model.get_var_by_name("f_{0}.{1}".format(h + 1, j + 1)) for j in range(inst.n_nodes))
+                model.sum(model.get_var_by_name("f({0},{1})".format(h + 1, j + 1)) for j in range(inst.n_nodes))
                 ==
-                model.sum(model.get_var_by_name("f_{0}.{1}".format(j + 1, h + 1)) for j in range(inst.n_nodes))
+                model.sum(model.get_var_by_name("f({0},{1})".format(j + 1, h + 1)) for j in range(inst.n_nodes))
                 + inst.points[h].power
             )
 
     # Avoid double cable between two points
     for edge in edges:
         model.add_constraint(
-            model.get_var_by_name("y_{0}.{1}".format(edge.source + 1, edge.destination + 1))
+            model.get_var_by_name("y({0},{1})".format(edge.source + 1, edge.destination + 1))
             ==
-            model.sum(model.get_var_by_name("x_{0}.{1}.{2}".format(edge.source + 1, edge.destination + 1, k + 1)) for k in range(inst.num_cables))
+            model.sum(model.get_var_by_name("x({0},{1},{2})".format(edge.source + 1, edge.destination + 1, k + 1)) for k in range(inst.num_cables))
         )
 
     # Guarantee that the cable is enough for the connection
     for edge in edges:
         model.add_constraint(
             model.sum(
-                model.get_var_by_name("x_{0}.{1}.{2}".format(edge.source + 1, edge.destination + 1, k + 1)) * inst.cables[k].capacity
+                model.get_var_by_name("x({0},{1},{2})".format(edge.source + 1, edge.destination + 1, k + 1)) * inst.cables[k].capacity
                 for k in range(inst.num_cables)
             )
             >=
-            model.get_var_by_name("f_{0}.{1}".format(edge.source + 1, edge.destination + 1))
+            model.get_var_by_name("f({0},{1})".format(edge.source + 1, edge.destination + 1))
         )
 
     # Objective function
     model.minimize(
         model.sum(
-            inst.cables[k].price * get_distance(inst.points[i], inst.points[j]) * model.get_var_by_name("x_{0}.{1}.{2}".format(i + 1, j + 1, k + 1))
+            inst.cables[k].price * get_distance(inst.points[i], inst.points[j]) * model.get_var_by_name("x({0},{1},{2})".format(i + 1, j + 1, k + 1))
             for k in range(inst.num_cables) for i in range(inst.n_nodes) for j in range(inst.n_nodes)
         )
     )
 
-    #model.export_as_lp("model.lp")
+    #plot_high_quality(inst, sol, export=False)
+    #model.export_as_lp("model_doc.lp")
 
-    print("Solving...")
-    model.solve()
-
-    sol = []
-    for edge in edges:
-        for k in range(inst.num_cables):
-            val = model.solution.get_value("x_{0}.{1}.{2}".format(edge.source + 1, edge.destination + 1, k + 1))
-            if val > 0.5:
-                sol.append(CableSol(edge.source + 1, edge.destination + 1, k + 1))
-
-    #model.print_solution()
-
-    plot_high_quality(inst, sol, export=False)
-
+    return model
 
 def read_turbines_file(inst):
 
@@ -151,7 +289,7 @@ def read_turbines_file(inst):
     points = []
 
     for index, line in enumerate(file):
-        if index > 20: break
+        if index >= 20: break
         words = list(map(int, line.split()))
         points.append(
             Point(words[0], words[1], words[2])
@@ -176,7 +314,7 @@ def read_cables_file(inst):
 
     cables = []
     for index, line in enumerate(file):
-        if index > 10: break
+        if index >= 20: break
         words = line.split()
         cables.append(
             Cable(int(words[0]), float(words[1]), int(words[2]))
@@ -247,7 +385,7 @@ def plot_solution(inst, edges):
         mode='markers',
         hoverinfo='text',
         marker=Marker(
-            showscale = False,
+            showscale=True,
             colorscale='Greens',
             reversescale=True,
             color=[],
@@ -386,6 +524,7 @@ class Instance:
     num_cables = 0
     points = []
     cables = []
+    C = 10
 
     ## Parameters
     #model_type
