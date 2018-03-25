@@ -6,6 +6,7 @@ from plotly.graph_objs import *
 import networkx as nx
 import matplotlib.pyplot as plt
 import cplex
+import argparse
 
 # Named tuples describing input data
 Edge = namedtuple("Edge", ["source", "destination"])
@@ -19,32 +20,80 @@ CableSol = namedtuple("CableSol", ["source", "destination", "capacity"])
 def main():
 
     inst = Instance()
-    inst.debug_mode = True
 
     inst.turb_file = 'wf01/wf01.turb'
     inst.cbl_file = 'wf01/wf01_cb01.cbl'
     inst.name = 'Wind Farm wf01'
 
+    parse_command_line(inst)
+
     read_turbines_file(inst)
     read_cables_file(inst)
-
+    print(inst.C)
     print("Solving...")
-    model = build_model_classical_cplex(inst)
+    if inst.interface == 'cplex':
+        model = build_model_classical_cplex(inst)
+    else:
+        model = build_model_docplex(inst)
     model.solve()
 
-    edges = [Edge(i, j) for i in range(inst.n_nodes) for j in range(inst.n_nodes)]
-
-    sol = []
-    for edge in edges:
-        for k in range(inst.num_cables):
-            val = model.solution.get_values("x({0},{1},{2})".format(edge.source + 1, edge.destination + 1, k + 1))
-            if val > 0.5:
-                sol.append(CableSol(edge.source + 1, edge.destination + 1, k + 1))
+    sol = get_solution(inst, model)
 
     #plot_solution(inst, sol)
 
+    #plot_high_quality(inst, sol, export=True)
 
-    plot_high_quality(inst, sol, export=True)
+
+def get_solution(inst, model):
+    sol = []
+    edges = [Edge(i, j) for i in range(inst.n_nodes) for j in range(inst.n_nodes)]
+    if inst.interface == 'cplex':
+        for edge in edges:
+            for k in range(inst.num_cables):
+                val = model.solution.get_values("x({0},{1},{2})".format(edge.source + 1, edge.destination + 1, k + 1))
+                if val > 0.5:
+                    sol.append(CableSol(edge.source + 1, edge.destination + 1, k + 1))
+    else:
+        for edge in edges:
+            for k in range(inst.num_cables):
+                val = model.solution.get_value("x({0},{1},{2})".format(edge.source + 1, edge.destination + 1, k + 1))
+                if val > 0.5:
+                    sol.append(CableSol(edge.source + 1, edge.destination + 1, k + 1))
+
+    return sol
+
+
+def parse_command_line(inst):
+
+    parser = argparse.ArgumentParser(description='Process details about instance and interface.')
+
+    parser.add_argument('--cf', type=str, nargs=1,
+                        help='cable file path, starting from folder \'data\'')
+    parser.add_argument('--tf', type=str, nargs=1,
+                        help='substation and turbine file path, starting from folder \'data\'')
+    parser.add_argument('--cluster', action="store_true", help='type --cluster if you want to use the cluster')
+    parser.add_argument('--interface', choices=['docplex', 'cplex'],  help='Choose interface ')
+    parser.add_argument('--C', type=int,  help='the maximum number of cables linked to a substation')
+
+    args = parser.parse_args()
+
+    if args.cf and args.tf:
+        inst.cbl_file = args.cf[0]
+        inst.turb_file = args.tf[0]
+    elif (args.cf is None and args.tf is not None) or (args.cf is not None and args.tf is None):
+        raise NameError("Both --cf and --tf must be set")
+
+    if args.cluster:
+        inst.cluster = True
+
+    if args.interface == 'docplex':
+        inst.interface = 'docplex'
+    else:
+        inst.interface = 'cplex'
+
+    if args.C is not None:
+        inst.C = args.C
+
 
 def build_model_classical_cplex(inst):
     model = cplex.Cplex()
@@ -102,7 +151,7 @@ def build_model_classical_cplex(inst):
         model.variables.set_upper_bounds([("f({0},{1})".format(i + 1, i + 1), 0)])
 
 
-    # Out- degree constraints
+    # Out-degree constraints
     for h in range(len(inst.points)):
         if inst.points[h].power < -0.5:
             model.linear_constraints.add(
@@ -122,7 +171,6 @@ def build_model_classical_cplex(inst):
                 senses=["E"],
                 rhs=[1]
             )
-
 
     # Flow balancing constraint
     for h in range(len(inst.points)):
@@ -309,7 +357,7 @@ def read_cables_file(inst):
 
     cables = []
     for index, line in enumerate(file):
-        if index >= 20: break
+        if index >= 10: break
         words = line.split()
         cables.append(
             Cable(int(words[0]), float(words[1]), int(words[2]))
@@ -380,7 +428,7 @@ def plot_solution(inst, edges):
         mode='markers',
         hoverinfo='text',
         marker=Marker(
-            showscale=True,
+            showscale=False,
             colorscale='Greens',
             reversescale=True,
             color=[],
@@ -397,17 +445,18 @@ def plot_solution(inst, edges):
 
 
     # Create figure
-    fig = Figure(data=Data([edge_trace, node_trace]),
+    fig = Figure(data=Data(
+                    [edge_trace, node_trace]),
                     layout=Layout(
                         title='<br><b style="font-size:20px>'+inst.name+'</b>',
                         titlefont=dict(size=16),
                         showlegend=False,
                         hovermode='closest',
-                        margin=dict(b=20,l=5,r=5,t=40),
+                        margin=dict(b=20, l=5, r=5, t=40),
                         xaxis=XAxis(showgrid=False, zeroline=False, showticklabels=False),
                         yaxis=dict(scaleanchor="x", scaleratio=1,showgrid=False, zeroline=False, showticklabels=False)
-                    ),
-             )
+                    )
+                )
 
     py.plot(fig, filename='wind_farm.html')
 
@@ -447,9 +496,7 @@ def plot_high_quality(inst, edges, export=False):
     plt.gca().set_aspect('equal', adjustable='box')
 
     # draw graph
-    nx.draw(G, pos, with_labels=True, node_size=1500, alpha=0.3, arrows=True, labels=mapping, node_color='g')
-
-    G = nx.relabel_nodes(G, mapping)
+    nx.draw(G, pos, with_labels=True, node_size=1300, alpha=0.3, arrows=True, labels=mapping, node_color='g', linewidth=10)
 
     if (export == True):
         plt.savefig('../imgs/foo.svg')
@@ -528,8 +575,10 @@ class Instance:
     ## Parameters
     #model_type
     #num_threads
+    cluster = False
     time_limit = 3600
     debug_mode = False
+    interface = 'cplex'
     # available_memory
     # max_nodes
     # cutoff
