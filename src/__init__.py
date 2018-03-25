@@ -45,6 +45,15 @@ def main():
 
 
 def get_solution(inst, model):
+
+    """
+    Read all x(i, j, k) variables and store the ones with value one into the solution
+
+    :param inst: Instance of the problem
+    :param model: The CPLEX' model
+    :return: List of CableSol named tuples
+    """
+
     sol = []
     edges = [Edge(i, j) for i in range(inst.n_nodes) for j in range(inst.n_nodes)]
     if inst.interface == 'cplex':
@@ -64,6 +73,13 @@ def get_solution(inst, model):
 
 
 def parse_command_line(inst):
+
+    """
+    Parse the command line
+
+    :param inst: Instance of the problem
+    :return: None
+    """
 
     parser = argparse.ArgumentParser(description='Process details about instance and interface.')
 
@@ -96,6 +112,14 @@ def parse_command_line(inst):
 
 
 def build_model_classical_cplex(inst):
+
+    """
+    Build the model using classical cplex API
+
+    :param inst: Instance of the problem
+    :return: The model filled with variables and constraints
+    """
+
     model = cplex.Cplex()
 
     model.set_problem_name(inst.name)
@@ -149,7 +173,6 @@ def build_model_classical_cplex(inst):
 
     for i in range(inst. n_nodes):
         model.variables.set_upper_bounds([("f({0},{1})".format(i + 1, i + 1), 0)])
-
 
     # Out-degree constraints
     for h in range(len(inst.points)):
@@ -222,6 +245,14 @@ def build_model_classical_cplex(inst):
 
 
 def build_model_docplex(inst):
+
+    """
+    Build the model using docplex API
+
+    :param inst: Instance of the problem
+    :return: The model filled with variables and constraints
+    """
+
     edges = [Edge(i, j) for i in range(inst.n_nodes) for j in range(inst.n_nodes)]
 
     model = Model(name=inst.name)
@@ -557,6 +588,7 @@ class Instance:
     This class stores all the useful information about input data and parameters
 
     """
+
     ## Model
     name = ''
     y_start = 0
