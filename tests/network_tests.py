@@ -47,3 +47,5 @@ print(L.nodes.data())
 a = numpy.reshape(numpy.random.random_integers(0,1,size=100),(10,10))
 D = nx.DiGraph(a)
 print(D.edges.data())
+
+print("Test eseguito!")
