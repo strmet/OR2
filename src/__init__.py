@@ -29,12 +29,13 @@ def main():
 
     read_turbines_file(inst)
     read_cables_file(inst)
-    print(inst.C)
-    print("Solving...")
+
     if inst.interface == 'cplex':
         model = build_model_classical_cplex(inst)
     else:
         model = build_model_docplex(inst)
+
+    print("Solving...")
     model.solve()
 
     sol = get_solution(inst, model)
@@ -197,7 +198,7 @@ def build_model_classical_cplex(inst):
 
     # Flow balancing constraint
     for h in range(len(inst.points)):
-        if inst.points[h].power > - 0.5:
+        if inst.points[h].power > 0.5:
             sum = ["f({0},{1})".format(h + 1, j + 1) for j in range(inst.n_nodes)if h != j] \
                   + \
                   ["f({0},{1})".format(j + 1, h + 1) for j in range(inst.n_nodes) if h != j]
@@ -209,6 +210,18 @@ def build_model_classical_cplex(inst):
                 )],
                 senses=["E"],
                 rhs=[inst.points[h].power]
+            )
+
+    # Maximum number of cables linked to a substation
+    for h in range(len(inst.points)):
+        if inst.points[h].power < -0.5:
+            model.linear_constraints.add(
+                lin_expr=[cplex.SparsePair(
+                            ind=["y({0},{1})".format(i + 1, h + 1) for i in range(inst.n_nodes)],
+                            val=[1] * inst.n_nodes,
+                )],
+                senses=["L"],
+                rhs=[inst.C]
             )
 
     # Avoid double cable between two points
@@ -309,9 +322,17 @@ def build_model_docplex(inst):
                 1
             )
 
+    # Maximum number of cables linked to a substation
+    for h in range(len(inst.points)):
+        if inst.points[h].power < -0.5:
+            model.add_constraint(
+                model.sum(model.get_var_by_name("y({0},{1})".format(i + 1, h + 1)) for i in range(inst.n_nodes))
+                <=
+                inst.C
+            )
     # Flow balancing constraint
     for h in range(len(inst.points)):
-        if inst.points[h].power > - 0.5:
+        if inst.points[h].power > 0.5:
             model.add_constraint(
                 model.sum(model.get_var_by_name("f({0},{1})".format(h + 1, j + 1)) for j in range(inst.n_nodes))
                 ==
@@ -363,7 +384,7 @@ def read_turbines_file(inst):
     points = []
 
     for index, line in enumerate(file):
-        if index >= 20: break
+        if index >= 3: break
         words = list(map(int, line.split()))
         points.append(
             Point(words[0], words[1], words[2])
@@ -388,7 +409,7 @@ def read_cables_file(inst):
 
     cables = []
     for index, line in enumerate(file):
-        if index >= 10: break
+        if index >= 3: break
         words = line.split()
         cables.append(
             Cable(int(words[0]), float(words[1]), int(words[2]))
