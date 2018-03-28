@@ -27,21 +27,24 @@ class Instance:
 
     """
 
-    def __init__(self, trb_f='', cbl_f='', name="MyOptimizer"):
+    def __init__(self, dataset_selection=1):
         # Model variables
-        self.name = name
+        self.name = ''
         self.y_start = 0
         self.f_start = 0
         self.x_start = 0
 
         # Input data variables
-        self.cbl_file = cbl_f
-        self.turb_file = trb_f
         self.n_nodes = 0
         self.num_cables = 0
         self.points = []
         self.cables = []
         self.c = 10
+
+        # Dataset selection and consequent input files building
+        self.data_select = dataset_selection
+        self.__build_input_files()
+        self.__build_name()
 
         # Named tuples, describing input data
         self.Edge = namedtuple("Edge", ["source", "destination"])
@@ -53,9 +56,9 @@ class Instance:
         # self.model_type
         # self.num_threads
         self.cluster = False
-        self.time_limit = 300
+        self.time_limit = 100
         self.rins = 7
-        self.polishtime = 400
+        self.polishtime = 30
         self.debug_mode = False
         self.verbosity = 0
         self.interface = 'cplex'
@@ -63,6 +66,73 @@ class Instance:
         # self.max_nodes
         # self.cutoff
         # self.integer_costs
+
+    def __build_input_files(self):
+        """
+        py:function:: __build_input_files(self)
+
+        Sets the input file correctly, based on the dataset selection
+
+        """
+        if not type(self.data_select) == int:
+            raise TypeError("Expecting an integer value representing the dataset. Given: " + str(d))
+        if self.data_select <= 0 or self.data_select >= 30:
+            raise ValueError("The dataset you're trying to reach is out of range.\n" +
+                             "Range: [1-29]. Given: " + str(d))
+
+        data_tostring = str(self.data_select)
+        if 1 <= self.data_select <= 9:
+            data_tostring = "0" + data_tostring
+
+        self.turb_file = "../data/data_" + data_tostring + ".turb"
+        self.cbl_file = "../data/data_" + data_tostring + ".cbl"
+
+    def __build_name(self):
+        """
+        py:function:: __build_name(self)
+
+        Sets the name of the wind farm correctly, based on the dataset selection
+
+        """
+        if not type(self.data_select) == int:
+            raise TypeError("Expecting an integer value representing the dataset. Given: " + str(d))
+        if self.data_select <= 0 or self.data_select >= 30:
+            raise ValueError("The dataset you're trying to reach is out of range.\n" +
+                             "Range: [1-29]. Given: " + str(d))
+
+        # We assume that, in this context, we'll never have a WF >=10
+        wf_number = 0
+        if 1 <= self.data_select <= 6:
+            wf_number = 1
+        elif 7 <= self.data_select <= 15:
+            wf_number = 2
+        elif 16 <= self.data_select <= 19:
+            wf_number = 3
+        elif 20 <= self.data_select <= 21:
+            wf_number = 4
+        elif 26 <= self.data_select <= 29:
+            wf_number = 5
+        elif 30 <= self.data_select <= 31:
+            wf_number = 6
+
+        if wf_number == 0:
+            raise ValueError("Something went wrong with the Wind Farm number;\n" +
+                             "check the dataset selection parameter: " + str(self.data_select))
+
+        self.name = "Wind Farm 0"+str(wf_number)
+
+    @property
+    def data_select(self):
+        return self.__data_select
+
+    @data_select.setter
+    def data_select(self, d):
+        if not type(d) == int:
+            raise TypeError("Expecting an integer value representing the dataset. Given: " + str(d))
+        if d <= 0 or d>=30:
+            raise ValueError("The dataset you're trying to reach is out of range.\n" +
+                             "Range: [1-29]. Given: " + str(d))
+        self.__data_select = d
 
     @property
     def time_limit(self):
@@ -190,9 +260,9 @@ class Instance:
     def ypos(self, offset):
 
         """
-        py:function:: ypos(offset, inst)
+        py:function:: ypos(self, offset)
 
-        Plot the solution using standard libraries
+        .. description missing ..
 
         :param offset: Offset w.r.t ystart and the edge indexed by (i, j)
 
@@ -203,17 +273,16 @@ class Instance:
     def parse_command_line(self):
 
         """
-        Parse the command line
+        py:function:: parse_command_line(self)
+
+        Parses the command line
 
         :return: None
         """
 
         parser = argparse.ArgumentParser(description='Process details about instance and interface.')
 
-        parser.add_argument('--cf', type=str, nargs=1,
-                            help='cable relative file path, starting from folder \'data\'')
-        parser.add_argument('--tf', type=str, nargs=1,
-                            help='turbine relative file path, starting from folder \'data\'')
+        parser.add_argument('--dataset', type=int, help='dataset selection; datasets available: [1,29]')
         parser.add_argument('--cluster', action="store_true", help='type --cluster if you want to use the cluster')
         parser.add_argument('--interface', choices=['docplex', 'cplex'], help='Choose interface ')
         parser.add_argument('--C', type=int, help='the maximum number of cables linked to a substation')
@@ -223,19 +292,8 @@ class Instance:
 
         args = parser.parse_args()
 
-        if args.cf and args.tf:
-            # Modifying one of these two files implies to modify the other one, too.
-            self.cbl_file = args.cf[0]
-            self.turb_file = args.tf[0]
-        elif (not args.cf and args.tf) or (args.cf and not args.tf):
-            # Therefore, modifying just one and one only raises this error.
-            raise NameError("Both --cf and --tf must be set")
-        else:
-            # Leaving both parameters alone means to set the default values,
-            # which is allowed but we want to be warned about it.
-            warnings.warn("No '.cbl'/'.trb' input files are set; using the default values: "
-                          + self.cbl_file
-                          + ", " + self.turb_file, ParseWarning)
+        if args.dataset:
+            self.data_select = args.dataset
 
         if args.cluster:
             self.cluster = True
@@ -273,17 +331,15 @@ class Instance:
 
         """
 
-        file = open("../data/" + self.turb_file, "r")
-
         points = []
-        for index, line in enumerate(file):
-            #if index >= 3:break
-            words = list(map(int, line.split()))
-            points.append(
-                self.Point(words[0], words[1], words[2])
-            )
 
-        file.close()
+        # the following opens and closes the file within the block
+        with open(self.turb_file, "r") as fp:
+            for line in fp:
+                # if index >=3: break
+                words = list(map(int,line.split()))
+                points.append(self.Point(words[0], words[1], words[2]))
+
         self.n_nodes = len(points)
         self.points = points
 
@@ -291,21 +347,20 @@ class Instance:
 
         """
         py:function:: read_cables_file(self)
+
         Read the cables file
 
         """
 
-        file = open("../data/" + self.cbl_file, "r")
-
         cables = []
-        for index, line in enumerate(file):
-            #if index >= 3: break
-            words = line.split()
-            cables.append(
-                self.Cable(int(words[0]), float(words[1]), int(words[2]))
-            )
 
-        file.close()
+        # the following opens and closes the file within the block
+        with open(self.turb_file, "r") as fp:
+            for line in fp:
+                # if index >=3: break
+                words = line.split()
+                cables.append(self.Cable(int(words[0]), float(words[1]), int(words[2])))
+
         self.num_cables = len(cables)
         self.cables = cables
 
@@ -314,7 +369,7 @@ class Instance:
         """
         py:function:: fpos(offset, self)
 
-        Plot the solution using standard libraries
+        .. description missing ..
 
         :param offset: Offset w.r.t fstart and the edge indexed by (i, j)
 
@@ -326,7 +381,7 @@ class Instance:
         """
         py:function:: xpos(offset, k, inst)
 
-        Plot the solution using standard libraries
+        .. description missing ..
 
         :param offset: Offset w.r.t xstart and the edge indexed by (i, j)
         :param k: index of the cable considered
@@ -339,7 +394,7 @@ class Instance:
 
         """
         py:function:: get_distance(point1, point2)
-        Get the distance between two poins
+        Get the distance between two points
 
         :param point1: First point
         :param point2: Second point
@@ -659,3 +714,122 @@ class Instance:
                         sol.append(self.CableSol(edge.source + 1, edge.destination + 1, k + 1))
 
         return sol
+
+    def plot_solution(self, model):
+
+        """
+        py:function:: plot_solution(inst, edges)
+
+        Plot the solution using the plot.ly library
+
+        :param edges: List of edges given back by CPLEX
+        :type edges: List of CableSol
+
+        """
+        edges = self.get_solution(model)
+        G = nx.DiGraph()
+
+        for index, node in enumerate(inst.points):
+            G.add_node(index, pos=(node.x, node.y))
+
+        for edge in edges:
+            G.add_edge(edge.source - 1, edge.destination - 1, weight=edge.capacity)
+
+        edge_trace = Scatter(
+            x=[],
+            y=[],
+            line=Line(width=1, color='#888'),
+            hoverinfo='none',
+            mode='lines'
+        )
+
+        for edge in G.edges():
+            x0, y0 = G.node[edge[0]]['pos']
+            x1, y1 = G.node[edge[1]]['pos']
+            edge_trace['x'] += [x0, x1, None]
+            edge_trace['y'] += [y0, y1, None]
+
+        node_trace = Scatter(
+            x=[],
+            y=[],
+            text=["Substation #{0}".format(i + 1) if inst.points[i].power < -0.5 else "Turbine #{0}".format(i + 1) for i in range(inst.n_nodes)],
+            mode='markers',
+            hoverinfo='text',
+            marker=Marker(
+                showscale=False,
+                colorscale='Greens',
+                reversescale=True,
+                color=[],
+                size=10,
+                line=dict(width=2))
+        )
+
+        # Prepare data structure for plotting (x, y, color)
+        for node in G.nodes():
+            x, y = G.node[node]['pos']
+            node_trace['x'].append(x)
+            node_trace['y'].append(y)
+            node_trace['marker']['color'].append("#32CD32")
+
+
+        # Create figure
+        fig = Figure(data=Data(
+            [edge_trace, node_trace]),
+            layout=Layout(
+                title='<br><b style="font-size:20px>'+inst.name+'</b>',
+                titlefont=dict(size=16),
+                showlegend=False,
+                hovermode='closest',
+                margin=dict(b=20, l=5, r=5, t=40),
+                xaxis=XAxis(showgrid=False, zeroline=False, showticklabels=False),
+                yaxis=dict(scaleanchor="x", scaleratio=1,showgrid=False, zeroline=False, showticklabels=False)
+            )
+        )
+
+        py.plot(fig, filename='wind_farm.html')
+
+
+    def plot_high_quality(self, model, export=False):
+
+        """
+        py:function:: plot_high_quality(inst, edges)
+
+        Plot the solution using standard libraries
+
+        :param inst: First point
+        :param edges: List of edges given back by CPLEX
+        :type edges: List of CableSol
+
+        """
+        edges = self.get_solution(model)
+        G = nx.DiGraph()
+
+        mapping = {}
+
+        for i in range(inst.n_nodes):
+            if (inst.points[i].power < -0.5):
+                mapping[i] = 'S{0}'.format(i + 1)
+            else:
+                mapping[i] = 'T{0}'.format(i + 1)
+
+        for index, node in enumerate(inst.points):
+            G.add_node(index)
+
+        for edge in edges:
+            G.add_edge(edge.source - 1, edge.destination - 1)
+
+        pos = {i: (point.x, point.y) for i, point in enumerate(inst.points)}
+
+        # Avoid re scaling of axes
+        plt.gca().set_aspect('equal', adjustable='box')
+
+        # draw graph
+        nx.draw(G, pos, with_labels=True, node_size=1300, alpha=0.3, arrows=True, labels=mapping, node_color='g', linewidth=10)
+
+        if (export == True):
+            plt.savefig('../imgs/foo.svg')
+
+
+        # show graph
+        plt.show()
+
