@@ -9,6 +9,10 @@ import warnings
 import argparse
 import cplex
 import math
+import plotly.offline as py
+from plotly.graph_objs import *
+import networkx as nx
+import matplotlib.pyplot as plt
 
 
 class ValueWarning(UserWarning):
@@ -56,9 +60,9 @@ class Instance:
         # self.model_type
         # self.num_threads
         self.cluster = False
-        self.time_limit = 100
+        self.time_limit = 1200
         self.rins = 7
-        self.polishtime = 30
+        self.polishtime = 900
         self.debug_mode = False
         self.verbosity = 0
         self.interface = 'cplex'
@@ -336,8 +340,8 @@ class Instance:
         # the following opens and closes the file within the block
         with open(self.turb_file, "r") as fp:
             for line in fp:
-                # if index >=3: break
-                words = list(map(int,line.split()))
+                #if len(points) > 3: break
+                words = list(map(int, line.split()))
                 points.append(self.Point(words[0], words[1], words[2]))
 
         self.n_nodes = len(points)
@@ -357,7 +361,7 @@ class Instance:
         # the following opens and closes the file within the block
         with open(self.turb_file, "r") as fp:
             for line in fp:
-                # if index >=3: break
+                #if len(cables) > 3: break
                 words = line.split()
                 cables.append(self.Cable(int(words[0]), float(words[1]), int(words[2])))
 
@@ -429,10 +433,10 @@ class Instance:
         self.y_start = model.variables.get_num()
         name_y_edges = ["y({0},{1})".format(i + 1, j + 1) for i in range(self.n_nodes) for j in range(self.n_nodes)]
 
-        for index, edge in enumerate(name_y_edges):
+        for edge in name_y_edges:
             model.variables.add(
                 types=[model.variables.type.binary],
-                names=[name_y_edges[index]],
+                names=[edge]
             )
             if self.debug_mode:
                 if self.ypos(index) != model.variables.get_num() - 1:
@@ -442,10 +446,10 @@ class Instance:
         self.f_start = model.variables.get_num()
         name_f_edges = ["f({0},{1})".format(i + 1, j + 1) for i in range(self.n_nodes) for j in range(self.n_nodes)]
 
-        for index, edge in enumerate(name_f_edges):
+        for edge in name_f_edges:
             model.variables.add(
                 types=[model.variables.type.continuous],
-                names=[name_f_edges[index]]
+                names=[edge]
             )
             if self.debug_mode:
                 if self.fpos(index) != model.variables.get_num() - 1:
@@ -454,7 +458,7 @@ class Instance:
         # Add x(i,j,k) variables
         self.x_start = model.variables.get_num()
 
-        for index, edge in enumerate(edges):
+        for edge in edges:
             for k in range(self.num_cables):
                 model.variables.add(
                     types=[model.variables.type.binary],
@@ -465,16 +469,23 @@ class Instance:
                     if self.xpos(index, k) != model.variables.get_num() - 1:
                         raise NameError('Number of variables and index do not match')
 
-        # No self-loop constraint
+        # No self-loop constraint (on x,y,f)
         for i in range(self.n_nodes):
-            model.variables.set_upper_bounds([("y({0},{1})".format(i + 1, i + 1), 0)])
+            model.variables.set_upper_bounds([("y({0},{1})".format(i+1, i+1), 0)])
+        for i in range(self.n_nodes):
+            model.variables.set_upper_bounds([("f({0},{1})".format(i+1, i+1), 0)])
+        for i in range(self.n_nodes):
+            for k in range(self.num_cables):
+                model.variables.set_upper_bounds([("x({0},{1},{2})".format(i+1, i+1, k+1), 0)])
 
+        # Energy flow must be positive
         for i in range(self.n_nodes):
-            model.variables.set_upper_bounds([("f({0},{1})".format(i + 1, i + 1), 0)])
+            for j in range(self.n_nodes):
+                model.variables.set_lower_bounds([("f({0},{1})".format(i + 1, j + 1), 0)])
 
         # Out-degree constraints
-        for h in range(len(self.points)):
-            if self.points[h].power < -0.5:
+        for h, point in enumerate(self.points):
+            if point.power < -0.5:  # if it's a substation
                 model.linear_constraints.add(
                     lin_expr=[cplex.SparsePair(
                         ind=["y({0},{1})".format(h + 1, j + 1) for j in range(self.n_nodes)],
@@ -483,7 +494,7 @@ class Instance:
                     senses=["E"],
                     rhs=[0]
                 )
-            else:
+            else:                   # if it's a turbine
                 model.linear_constraints.add(
                     lin_expr=[cplex.SparsePair(
                         ind=["y({0},{1})".format(h + 1, j + 1) for j in range(self.n_nodes)],
@@ -494,8 +505,8 @@ class Instance:
                 )
 
         # Flow balancing constraint
-        for h in range(len(self.points)):
-            if self.points[h].power > 0.5:
+        for h, point in enumerate(self.points):
+            if point.power > 0.5:  # if it's a substation
                 summation = ["f({0},{1})".format(h + 1, j + 1) for j in range(self.n_nodes) if h != j] \
                       + \
                       ["f({0},{1})".format(j + 1, h + 1) for j in range(self.n_nodes) if h != j]
@@ -506,12 +517,12 @@ class Instance:
                         val=coefficients,
                     )],
                     senses=["E"],
-                    rhs=[self.points[h].power]
+                    rhs=[point.power]
                 )
 
         # Maximum number of cables linked to a substation
-        for h in range(len(self.points)):
-            if self.points[h].power < -0.5:
+        for h, point in enumerate(self.points):
+            if point.power < -0.5:
                 model.linear_constraints.add(
                     lin_expr=[cplex.SparsePair(
                         ind=["y({0},{1})".format(i + 1, h + 1) for i in range(self.n_nodes)],
@@ -543,7 +554,8 @@ class Instance:
                         + \
                         ["x({0},{1},{2})".format(edge.source + 1, edge.destination + 1, k + 1) for k in
                          range(self.num_cables)]
-            coefficients = [-1] + [self.cables[k].capacity for k in range(self.num_cables)]
+            coefficients = [-1] + [cable.capacity for cable in self.cables]
+
             model.linear_constraints.add(
                 lin_expr=[cplex.SparsePair(
                     ind=summation,
@@ -722,14 +734,13 @@ class Instance:
 
         Plot the solution using the plot.ly library
 
-        :param edges: List of edges given back by CPLEX
-        :type edges: List of CableSol
+        :param model: CPLEX internal model
 
         """
         edges = self.get_solution(model)
         G = nx.DiGraph()
 
-        for index, node in enumerate(inst.points):
+        for index, node in enumerate(self.points):
             G.add_node(index, pos=(node.x, node.y))
 
         for edge in edges:
@@ -752,7 +763,7 @@ class Instance:
         node_trace = Scatter(
             x=[],
             y=[],
-            text=["Substation #{0}".format(i + 1) if inst.points[i].power < -0.5 else "Turbine #{0}".format(i + 1) for i in range(inst.n_nodes)],
+            text=["Substation #{0}".format(i + 1) if self.points[i].power < -0.5 else "Turbine #{0}".format(i + 1) for i in range(self.n_nodes)],
             mode='markers',
             hoverinfo='text',
             marker=Marker(
@@ -776,7 +787,7 @@ class Instance:
         fig = Figure(data=Data(
             [edge_trace, node_trace]),
             layout=Layout(
-                title='<br><b style="font-size:20px>'+inst.name+'</b>',
+                title='<br><b style="font-size:20px>'+self.name+'</b>',
                 titlefont=dict(size=16),
                 showlegend=False,
                 hovermode='closest',
@@ -806,19 +817,19 @@ class Instance:
 
         mapping = {}
 
-        for i in range(inst.n_nodes):
-            if (inst.points[i].power < -0.5):
+        for i in range(self.n_nodes):
+            if (self.points[i].power < -0.5):
                 mapping[i] = 'S{0}'.format(i + 1)
             else:
                 mapping[i] = 'T{0}'.format(i + 1)
 
-        for index, node in enumerate(inst.points):
+        for index, node in enumerate(self.points):
             G.add_node(index)
 
         for edge in edges:
             G.add_edge(edge.source - 1, edge.destination - 1)
 
-        pos = {i: (point.x, point.y) for i, point in enumerate(inst.points)}
+        pos = {i: (point.x, point.y) for i, point in enumerate(self.points)}
 
         # Avoid re scaling of axes
         plt.gca().set_aspect('equal', adjustable='box')
@@ -827,8 +838,7 @@ class Instance:
         nx.draw(G, pos, with_labels=True, node_size=1300, alpha=0.3, arrows=True, labels=mapping, node_color='g', linewidth=10)
 
         if (export == True):
-            plt.savefig('../imgs/foo.svg')
-
+            plt.savefig('../out/img/foo.svg')
 
         # show graph
         plt.show()
