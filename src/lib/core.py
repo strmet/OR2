@@ -44,13 +44,12 @@ def combinatorial_algorithm(G, delta, k, patients):
         C_v = set([v])
         p_v = [{u: nx.shortest_path(G,v,u)} for u in G.nodes() if u is not v]
         while len(C_v) < k:
-            print(v)
             max = -1
             for u in set(G.nodes()).difference(C_v):
                 l_v = set(p_v[u-1]) # This "-1" may look ugly, but it is necessary due to list indexing
                 if len(l_v.union(C_v)) <= k:
                     P_v = cover(patients, l_v)
                     P_c = cover(patients, C_v)
-                    
+
 
 
