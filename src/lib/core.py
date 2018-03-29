@@ -39,18 +39,68 @@ def combinatorial_algorithm(G, delta, k, patients):
 
     G = delta_removal(G, delta)
 
-    C = []
+    C = {}
+    P_C = {}
+    #print("Our graph:")
+    #print(G.nodes)
+    #print(G.edges)
+    #input()
+    #print("Our samples:")
+    #print(patients)
+    #input()
     for v in G.nodes():
-        C_v = set([v])
-        p_v = [{u: nx.shortest_path(G,v,u)} for u in G.nodes() if u is not v]
+        C_v = {v}
+        P_C_v = cover(patients, C_v) # no need to compute this \foreach u
+        #print("C_v: ", C_v)
+        #input()
+        p_v = {u: nx.shortest_path(G,v,u) for u in G.nodes() if u is not v}
+        #print("p_v: ", p_v)
+        #input()
         while len(C_v) < k:
-            print(v)
-            max = -1
+            maximum = -1
+            #print("P_C: ", P_C)
+            #input()
+            #print("P_C_v", P_C_v)
+            #input()
+            l_v_max = set()
+            #print("l_v_max: ", l_v_max)
+            #input()
+            #print("V - C_v: ", set(G.nodes()).difference(C_v))
+            #input()
+            #print("current v: ", v)
+            #input()
             for u in set(G.nodes()).difference(C_v):
-                l_v = set(p_v[u-1]) # This "-1" may look ugly, but it is necessary due to list indexing
+                #print("current u: ", u)
+                #input()
+                l_v = set(p_v[u])
+                #print("l_v: ", l_v)
+                #input()
+                #print("l_v U C_v: ", l_v.union(C_v))
+                #input()
                 if len(l_v.union(C_v)) <= k:
                     P_v = cover(patients, l_v)
-                    P_c = cover(patients, C_v)
-                    
+                    #print("P_v: ", P_v)
+                    #input()
+                    #print("num: ", len(P_v.difference(P_C_v)))
+                    #print("den: ", len(l_v.difference(C_v)))
+                    #input()
+                    ratio = len(P_v.difference(P_C_v))/len(l_v.difference(C_v))
+                    if maximum < ratio:
+                        maximum = ratio
+                        l_v_max = l_v
+            C_v = C_v.union(l_v_max)
+            P_C_v = cover(patients, C_v) # no need to compute this \foreach u
 
+        #print("C_v: ", len(C_v), C_v)
+        #print("C: ", len(C), C)
+        #print("P_C_v: ", len(P_C_v), P_C_v)
+        #print("P_C: ", len(P_C), P_C)
+        if len(P_C_v) > len(P_C):
+            C = C_v
+            P_C = cover(patients, C)
+            print("Best solution updated!")
+            print("Current C: ", C)
+            print("Current P_C (cardinality, samples_list):", len(P_C), P_C)
+
+    return C
 
