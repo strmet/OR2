@@ -91,15 +91,16 @@ def combinatorial_algorithm(G, delta, k, patients):
             C_v = C_v.union(l_v_max)
             P_C_v = cover(patients, C_v) # no need to compute this \foreach u
 
-        print("C_v: ", len(C_v), C_v)
-        print("C: ", len(C), C)
-        print("P_C_v: ", len(P_C_v), P_C_v)
-        print("P_C: ", len(P_C), P_C)
+        #print("C_v: ", len(C_v), C_v)
+        #print("C: ", len(C), C)
+        #print("P_C_v: ", len(P_C_v), P_C_v)
+        #print("P_C: ", len(P_C), P_C)
         if len(P_C_v) > len(P_C):
             C = C_v
             P_C = cover(patients, C)
-            print("Ciao!")
-
+            print("Best solution updated!")
+            print("Current C: ", C)
+            print("Current P_C (cardinality, samples_list):", len(P_C), P_C)
 
     return C
 
