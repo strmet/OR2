@@ -358,7 +358,7 @@ class Instance:
         cables = []
 
         # the following opens and closes the file within the block
-        with open(self.turb_file, "r") as fp:
+        with open(self.cbl_file, "r") as fp:
             for line in fp:
                 #if len(cables) > 3: break
                 words = line.split()
