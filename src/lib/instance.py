@@ -80,9 +80,9 @@ class Instance:
         """
         if not type(self.data_select) == int:
             raise TypeError("Expecting an integer value representing the dataset. Given: " + str(d))
-        if self.data_select <= 0 or self.data_select >= 30:
+        if self.data_select <= 0 or self.data_select >= 31:
             raise ValueError("The dataset you're trying to reach is out of range.\n" +
-                             "Range: [1-29]. Given: " + str(d))
+                             "Range: [1-30]. Given: " + str(d))
 
         data_tostring = str(self.data_select)
         if 1 <= self.data_select <= 9:
@@ -100,9 +100,9 @@ class Instance:
         """
         if not type(self.data_select) == int:
             raise TypeError("Expecting an integer value representing the dataset. Given: " + str(d))
-        if self.data_select <= 0 or self.data_select >= 30:
+        if self.data_select <= 0 or self.data_select >= 31:
             raise ValueError("The dataset you're trying to reach is out of range.\n" +
-                             "Range: [1-29]. Given: " + str(d))
+                             "Range: [1-30]. Given: " + str(d))
 
         # We assume that, in this context, we'll never have a WF >=10
         wf_number = 0
@@ -133,9 +133,9 @@ class Instance:
     def data_select(self, d):
         if not type(d) == int:
             raise TypeError("Expecting an integer value representing the dataset. Given: " + str(d))
-        if d <= 0 or d>=30:
+        if d <= 0 or d >= 31:
             raise ValueError("The dataset you're trying to reach is out of range.\n" +
-                             "Range: [1-29]. Given: " + str(d))
+                             "Range: [1-30]. Given: " + str(d))
         self.__data_select = d
 
     @property
@@ -340,7 +340,6 @@ class Instance:
         # the following opens and closes the file within the block
         with open(self.turb_file, "r") as fp:
             for line in fp:
-                #if len(points) > 3: break
                 words = list(map(int, line.split()))
                 points.append(self.Point(words[0], words[1], words[2]))
 
