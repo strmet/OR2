@@ -98,9 +98,12 @@ def combinatorial_algorithm(G, delta, k, patients):
         if len(P_C_v) > len(P_C):
             C = C_v
             P_C = cover(patients, C)
+            print("_________________")
+            print()
             print("Best solution updated!")
-            print("Current C: ", C)
-            print("Current P_C (cardinality, samples_list):", len(P_C), P_C)
+            print("Current C (ids): ", C)
+            print("Current P_C (cardinality, no samples_list):", len(P_C))
+
 
     return C
 
