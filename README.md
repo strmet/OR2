@@ -1,2 +1,2 @@
 # ro2
-Group project for Operational Research class
+Group project for the Operations Research class
