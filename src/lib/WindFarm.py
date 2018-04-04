@@ -65,9 +65,9 @@ class WindFarm:
         # self.model_type (???)
         # self.num_threads
         self.cluster = False
-        self.time_limit = 150
+        self.time_limit = 20
         self.rins = 7
-        self.polishtime = 90
+        self.polishtime = 15
         self.__debug_mode = False
         self.verbosity = 0
         self.__interface = 'cplex'
@@ -304,7 +304,7 @@ class WindFarm:
         model.parameters.timelimit.set(self.time_limit)
 
         # Writing the model to a proper location
-        model.write("../out/lpmodel.lp")
+        model.write(self.__project_path + "/out/lpmodel.lp")
 
         return model
 
@@ -430,7 +430,7 @@ class WindFarm:
         model.parameters.timelimit.set(self.time_limit)
 
         # Writing the model to a proper location
-        model.write("../out/lpmodel.lp")
+        model.write(self.__project_path + "/out/lpmodel.lp")
 
         return model
 
@@ -480,8 +480,21 @@ class WindFarm:
         if 1 <= self.data_select <= 9:
             data_tostring = "0" + data_tostring
 
-        self.turb_file = "../data/data_" + data_tostring + ".turb"
-        self.cbl_file = "../data/data_" + data_tostring + ".cbl"
+        abspath = os.path.abspath(os.path.dirname(__file__)).strip()
+        path_dirs = abspath.split('/')
+        path_dirs.remove('')
+
+        self.__project_path = ''
+        or2_found = False
+        i = 0
+        while not or2_found:
+            if path_dirs[i] == 'OR2':
+                or2_found = True
+            self.__project_path += '/' + path_dirs[i]
+            i += 1
+
+        self.turb_file = self.__project_path + "/data/data_" + data_tostring + ".turb"
+        self.cbl_file = self.__project_path + "/data/data_" + data_tostring + ".cbl"
 
     def __build_name(self):
         """
@@ -566,7 +579,7 @@ class WindFarm:
         nx.draw(G, pos, with_labels=True, node_size=1300, alpha=0.3, arrows=True, labels=mapping, node_color='g', linewidth=10)
 
         if export:
-            plt.savefig('../out/img/foo.svg')
+            plt.savefig(self.__project_path + '/out/img/foo.svg')
 
         # show graph
         plt.show()
@@ -724,7 +737,7 @@ class WindFarm:
         """
         self.__model.solve()
 
-    def write_solutions(self, where="../out/mysol.sol"):
+    def write_solutions(self):
         """
         Writes the solutions obtained by first invoking the built-in function of the model,
         and then by returning our private __get_solution() method, which returns the list of the
@@ -733,7 +746,7 @@ class WindFarm:
         :return: the list of x_{ij}^k variables set to one from the solution
         """
 
-        self.__model.solution.write(where)
+        self.__model.solution.write(self.__project_path+"/out/mysol.sol")
         return self.__get_solution()
 
     def parse_command_line(self):
