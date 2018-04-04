@@ -1,30 +1,29 @@
 # our own libraries
-from lib.instance import *
+from lib.WindFarm import *
 
 
 def main():
 
-    inst = Instance(dataset_selection=1)
+    # Initializes our instance. The class "WindFarm" has everything we need.
+    inst = WindFarm(dataset_selection=1)
 
+    # Correctly parses the command line
     inst.parse_command_line()
 
-    inst.read_turbines_file()
-    inst.read_cables_file()
+    # Reads the turbines and the cables file
+    inst.read_input()
 
-    if inst.interface == 'cplex':
-        model = inst.build_model_classical_cplex()
-    else:
-        model = inst.build_model_docplex()
+    inst.build_model()
 
+    # Starts the CPLEX/DOCPLEX solver
     print("Solving...")
+    inst.solve()
 
-    model.solve()
     # Writing our solution inside a '.sol' file
-    model.solution.write("../out/mysol.sol")
-    print(inst.get_solution(model))
-    inst.plot_solution(model)
+    inst.write_solutions()
 
-    inst.plot_high_quality(model, export=True)
+    # Plotting our solution
+    inst.plot_solution(high=True, export=True)
 
 
 if __name__ == "__main__":
