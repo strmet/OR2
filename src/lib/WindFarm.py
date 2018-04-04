@@ -50,10 +50,11 @@ class WindFarm:
         self.__cables = []
         self.c = 10
 
-        # Dataset selection and consequent input files building
+        # Dataset selection and consequent input files building, and output parameters
         self.data_select = dataset_selection
         self.__build_input_files()
         self.__build_name()
+        self.out_dir_name = 'test'
 
         # Named tuples, describing input data
         self.__Edge = namedtuple("Edge", ["source", "destination"])
@@ -65,9 +66,9 @@ class WindFarm:
         # self.model_type (???)
         # self.num_threads
         self.cluster = False
-        self.time_limit = 20
+        self.time_limit = 60
         self.rins = 7
-        self.polishtime = 15
+        self.polishtime = 45
         self.__debug_mode = False
         self.verbosity = 0
         self.__interface = 'cplex'
@@ -304,7 +305,7 @@ class WindFarm:
         model.parameters.timelimit.set(self.time_limit)
 
         # Writing the model to a proper location
-        model.write(self.__project_path + "/out/lpmodel.lp")
+        model.write(self.__project_path + "/out/"+self.out_dir_name+"/lpmodel.lp")
 
         return model
 
@@ -543,7 +544,7 @@ class WindFarm:
 
         return self.__y_start + offset
 
-    def __plot_high_quality(self, export=False):
+    def __plot_high_quality(self, show=False, export=False):
 
         """
         py:function:: plot_high_quality(inst, edges)
@@ -579,12 +580,28 @@ class WindFarm:
         nx.draw(G, pos, with_labels=True, node_size=1300, alpha=0.3, arrows=True, labels=mapping, node_color='g', linewidth=10)
 
         if export:
-            plt.savefig(self.__project_path + '/out/img/foo.svg')
+            plt.savefig(self.__project_path + '/out/' + self.out_dir_name + '/img/foo.svg')
 
         # show graph
-        plt.show()
+        if show:
+            plt.show()
 
     # Get and set methods, in the Pythonic way
+
+    @property
+    def out_dir_name(self):
+        return self.__out_dir_name
+
+    @out_dir_name.setter
+    def out_dir_name(self, d):
+        if not type(d) == str:
+            warnings.warn("Out path not given as string. Trying a conversion.", ValueWarning)
+            d = str(d)
+        if not os.path.exists(self.__project_path+'/out/'+d):
+            os.makedirs(self.__project_path+'/out/'+d)
+        if not os.path.exists(self.__project_path+'/out/'+d+'/img'):
+            os.makedirs(self.__project_path+'/out/'+d+'/img')
+        self.__out_dir_name = d
 
     @property
     def data_select(self):
@@ -742,11 +759,10 @@ class WindFarm:
         Writes the solutions obtained by first invoking the built-in function of the model,
         and then by returning our private __get_solution() method, which returns the list of the
         x_{ij}^k variables set to one.
-        :param where: the output file folder. Default value = '../out/mysol.sol'
         :return: the list of x_{ij}^k variables set to one from the solution
         """
 
-        self.__model.solution.write(self.__project_path+"/out/mysol.sol")
+        self.__model.solution.write(self.__project_path+"/out/"+self.out_dir_name+"/mysol.sol")
         return self.__get_solution()
 
     def parse_command_line(self):
@@ -769,8 +785,13 @@ class WindFarm:
         parser.add_argument('--rins', type=int, help='the frequency with which the RINS Heuristic will be applied')
         parser.add_argument('--timeout', type=int, help='timeout in which the optimizer will stop iterating')
         parser.add_argument('--polishtime', type=int, help='the time to wait before applying polishing')
+        parser.add_argument('--outfolder', type=str, help='name of the folder to be created inside the /out' +
+                            ' directory, which contains everything related to this run')
 
         args = parser.parse_args()
+
+        if args.outfolder:
+            self.out_dir_name = args.outfolder
 
         if args.dataset:
             self.data_select = args.dataset
@@ -812,11 +833,12 @@ class WindFarm:
         self.__read_turbines_file()
         self.__read_cables_file()
 
-    def plot_solution(self, high=False, export=False):
+    def plot_solution(self, show=False, high=False, export=False):
         """
         py:function:: plot_solution(inst, edges)
         Plots the solution using the plot.ly library
 
+        :param show: if =True, the exported plot will be shown right away.
         :param high: if =True, an high-quality img will be plotted, also
         :param export: if =True, such high-quality img will be exported
         :return:
@@ -882,10 +904,10 @@ class WindFarm:
             )
         )
 
-        py.plot(fig, filename='wind_farm.html')
+        py.plot(fig, filename=self.__project_path+'/out/'+self.out_dir_name+'/img/wind_farm.html')
 
         if high:
-            self.__plot_high_quality(export)
+            self.__plot_high_quality(show=show, export=export)
 
     @staticmethod
     def get_distance(point1, point2):

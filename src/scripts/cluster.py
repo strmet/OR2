@@ -23,7 +23,6 @@ while not or2_found:
     project_path += '/' + path_dirs[i]
     i += 1
 
-out_path = project_path + '/out'
 current_filename = ''
 for d in dataset_numbers:
     for i in interfaces:
@@ -34,9 +33,11 @@ for d in dataset_numbers:
                 instruction += " --interface " + i
                 instruction += " --C " + c
                 instruction += " --rins " + r
-                instruction += " --timeout 300 > "
-                instruction += out_path + '/'
-                current_filename = "run_on_d" + d + "i_" + i + "c" + c + "rins" + r + ".log"
-                instruction += current_filename
+                current_folder = "run_d=" + d + "i=" + i + "c=" + c + "rins=" + r
+                instruction += " --outfolder " + current_folder
+                instruction += " --timeout 60 > "
+                instruction += project_path + '/out' + '/' + current_folder + '/cplex_log.log'
                 instruction = instruction.strip()
+                if not os.path.exists(project_path + '/out' + '/' + current_folder):
+                    os.makedirs(project_path + '/out' + '/' + current_folder)
                 subprocess.call(instruction, shell=True)
