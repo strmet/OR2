@@ -24,7 +24,6 @@ class ParseWarning(UserWarning):
 
 
 class WindFarm:
-
     """
     py:class:: instance()
 
@@ -42,6 +41,7 @@ class WindFarm:
         self.__y_start = 0
         self.__f_start = 0
         self.__x_start = 0
+        self.__slack_start = 0
 
         # Input data variables
         self.__n_nodes = 0
@@ -123,7 +123,7 @@ class WindFarm:
     def __fpos(self, offset):
 
         """
-        py:function:: fpos(offset, self)
+        py:function:: __fpos(offset, self)
 
         .. description missing ..
 
@@ -135,7 +135,7 @@ class WindFarm:
     def __xpos(self, offset, k):
 
         """
-        py:function:: xpos(offset, k, inst)
+        py:function:: __xpos(offset, k, inst)
 
         .. description missing ..
 
@@ -144,6 +144,18 @@ class WindFarm:
 
         """
         return self.__x_start + offset * self.__num_cables + k
+
+    def __slackpos(self, offset):
+
+        """
+        py:function:: __slackpos(offset, k, inst)
+
+        .. description missing ..
+
+        :param offset: Offset w.r.t slackstart and the substation indexed by h
+
+        """
+        return self.__slack_start + offset
 
     def __build_model_cplex(self):
 
@@ -197,20 +209,35 @@ class WindFarm:
                 model.variables.add(
                     types=[model.variables.type.binary],
                     names=["x({0},{1},{2})".format(edge.source + 1, edge.destination + 1, k + 1)],
-                    obj=[self.__cables[k].price * WindFarm.get_distance(self.__points[edge.source], self.__points[edge.destination])]
+                    obj=[self.__cables[k].price *
+                         WindFarm.get_distance(self.__points[edge.source], self.__points[edge.destination])]
                 )
                 if self.__debug_mode:
                     if self.__xpos(index, k) != model.variables.get_num() - 1:
                         raise NameError('Number of variables and index do not match')
 
+        # Add s(h) (slack) variables
+        self.__slack_start = model.variables.get_num()
+
+        for h, point in enumerate(self.__points):
+            if point.power < -0.5:
+                model.variables.add(
+                    types=[model.variables.type.continuous],
+                    names=["s({0})".format(h+1)],
+                    obj=[1e9]
+                )
+                if self.__debug_mode:
+                    if self.__slackpos(h) != model.variables.get_num() - 1:
+                        raise NameError('Number of variables and index do not match')
+
         # No self-loop constraint (on x,y,f)
         for i in range(self.__n_nodes):
-            model.variables.set_upper_bounds([("y({0},{1})".format(i+1, i+1), 0)])
+            model.variables.set_upper_bounds([("y({0},{1})".format(i + 1, i + 1), 0)])
         for i in range(self.__n_nodes):
-            model.variables.set_upper_bounds([("f({0},{1})".format(i+1, i+1), 0)])
+            model.variables.set_upper_bounds([("f({0},{1})".format(i + 1, i + 1), 0)])
         for i in range(self.__n_nodes):
             for k in range(self.__num_cables):
-                model.variables.set_upper_bounds([("x({0},{1},{2})".format(i+1, i+1, k+1), 0)])
+                model.variables.set_upper_bounds([("x({0},{1},{2})".format(i + 1, i + 1, k + 1), 0)])
 
         # Energy flow must be positive
         for i in range(self.__n_nodes):
@@ -228,7 +255,7 @@ class WindFarm:
                     senses=["E"],
                     rhs=[0]
                 )
-            else:                   # if it's a turbine
+            else:  # if it's a turbine
                 model.linear_constraints.add(
                     lin_expr=[cplex.SparsePair(
                         ind=["y({0},{1})".format(h + 1, j + 1) for j in range(self.__n_nodes)],
@@ -257,10 +284,14 @@ class WindFarm:
         # Maximum number of cables linked to a substation
         for h, point in enumerate(self.__points):
             if point.power < -0.5:
+                constraint = ["y({0},{1})".format(i+1, h+1) for i in range(self.__n_nodes)] \
+                             + \
+                             ["s({0})".format(h+1)]
+                coefficients = [1] * self.__n_nodes + [-1]
                 model.linear_constraints.add(
                     lin_expr=[cplex.SparsePair(
-                        ind=["y({0},{1})".format(i + 1, h + 1) for i in range(self.__n_nodes)],
-                        val=[1] * self.__n_nodes,
+                        ind=constraint,
+                        val=coefficients,
                     )],
                     senses=["L"],
                     rhs=[self.c]
@@ -305,7 +336,7 @@ class WindFarm:
         model.parameters.timelimit.set(self.time_limit)
 
         # Writing the model to a proper location
-        model.write(self.__project_path + "/out/"+self.out_dir_name+"/lpmodel.lp")
+        model.write(self.__project_path + "/out/" + self.out_dir_name + "/lpmodel.lp")
 
         return model
 
@@ -419,7 +450,8 @@ class WindFarm:
         # Objective function
         model.minimize(
             model.sum(
-                self.__cables[k].price * Instance.get_distance(self.__points[i], self.__points[j]) * model.get_var_by_name(
+                self.__cables[k].price * Instance.get_distance(self.__points[i],
+                                                               self.__points[j]) * model.get_var_by_name(
                     "x({0},{1},{2})".format(i + 1, j + 1, k + 1))
                 for k in range(self.__num_cables) for i in range(self.__n_nodes) for j in range(self.__n_nodes)
             )
@@ -448,13 +480,15 @@ class WindFarm:
         if self.__interface == 'cplex':
             for edge in edges:
                 for k in range(self.__num_cables):
-                    val = self.__model.solution.get_values("x({0},{1},{2})".format(edge.source + 1, edge.destination + 1, k + 1))
+                    val = self.__model.solution.get_values(
+                        "x({0},{1},{2})".format(edge.source + 1, edge.destination + 1, k + 1))
                     if val > 0.5:
                         sol.append(self.__CableSol(edge.source + 1, edge.destination + 1, k + 1))
         elif self.__interface == 'docplex':
             for edge in edges:
                 for k in range(self.__num_cables):
-                    val = self.__model.solution.get_value("x({0},{1},{2})".format(edge.source + 1, edge.destination + 1, k + 1))
+                    val = self.__model.solution.get_value(
+                        "x({0},{1},{2})".format(edge.source + 1, edge.destination + 1, k + 1))
                     if val > 0.5:
                         sol.append(self.__CableSol(edge.source + 1, edge.destination + 1, k + 1))
         else:
@@ -529,12 +563,12 @@ class WindFarm:
             raise ValueError("Something went wrong with the Wind Farm number;\n" +
                              "check the dataset selection parameter: " + str(self.data_select))
 
-        self.__name = "Wind Farm 0"+str(wf_number)
+        self.__name = "Wind Farm 0" + str(wf_number)
 
     def __ypos(self, offset):
 
         """
-        py:function:: ypos(self, offset)
+        py:function:: __ypos(self, offset)
 
         Debug-purpose defined function.
 
@@ -577,7 +611,8 @@ class WindFarm:
         plt.gca().set_aspect('equal', adjustable='box')
 
         # draw graph
-        nx.draw(G, pos, with_labels=True, node_size=1300, alpha=0.3, arrows=True, labels=mapping, node_color='g', linewidth=10)
+        nx.draw(G, pos, with_labels=True, node_size=1300, alpha=0.3, arrows=True, labels=mapping, node_color='g',
+                linewidth=10)
 
         if export:
             plt.savefig(self.__project_path + '/out/' + self.out_dir_name + '/img/foo.svg')
@@ -597,10 +632,10 @@ class WindFarm:
         if not type(d) == str:
             warnings.warn("Out path not given as string. Trying a conversion.", ValueWarning)
             d = str(d)
-        if not os.path.exists(self.__project_path+'/out/'+d):
-            os.makedirs(self.__project_path+'/out/'+d)
-        if not os.path.exists(self.__project_path+'/out/'+d+'/img'):
-            os.makedirs(self.__project_path+'/out/'+d+'/img')
+        if not os.path.exists(self.__project_path + '/out/' + d):
+            os.makedirs(self.__project_path + '/out/' + d)
+        if not os.path.exists(self.__project_path + '/out/' + d + '/img'):
+            os.makedirs(self.__project_path + '/out/' + d + '/img')
         self.__out_dir_name = d
 
     @property
@@ -762,7 +797,7 @@ class WindFarm:
         :return: the list of x_{ij}^k variables set to one from the solution
         """
 
-        self.__model.solution.write(self.__project_path+"/out/"+self.out_dir_name+"/mysol.sol")
+        self.__model.solution.write(self.__project_path + "/out/" + self.out_dir_name + "/mysol.sol")
         return self.__get_solution()
 
     def parse_command_line(self):
@@ -786,7 +821,7 @@ class WindFarm:
         parser.add_argument('--timeout', type=int, help='timeout in which the optimizer will stop iterating')
         parser.add_argument('--polishtime', type=int, help='the time to wait before applying polishing')
         parser.add_argument('--outfolder', type=str, help='name of the folder to be created inside the /out' +
-                            ' directory, which contains everything related to this run')
+                                                          ' directory, which contains everything related to this run')
 
         args = parser.parse_args()
 
@@ -870,7 +905,8 @@ class WindFarm:
         node_trace = Scatter(
             x=[],
             y=[],
-            text=["Substation #{0}".format(i + 1) if self.__points[i].power < -0.5 else "Turbine #{0}".format(i + 1) for i in range(self.__n_nodes)],
+            text=["Substation #{0}".format(i + 1) if self.__points[i].power < -0.5 else "Turbine #{0}".format(i + 1) for
+                  i in range(self.__n_nodes)],
             mode='markers',
             hoverinfo='text',
             marker=Marker(
@@ -894,17 +930,17 @@ class WindFarm:
         fig = Figure(data=Data(
             [edge_trace, node_trace]),
             layout=Layout(
-                title='<br><b style="font-size:20px>'+self.__name+'</b>',
+                title='<br><b style="font-size:20px>' + self.__name + '</b>',
                 titlefont=dict(size=16),
                 showlegend=False,
                 hovermode='closest',
                 margin=dict(b=20, l=5, r=5, t=40),
                 xaxis=XAxis(showgrid=False, zeroline=False, showticklabels=False),
-                yaxis=dict(scaleanchor="x", scaleratio=1,showgrid=False, zeroline=False, showticklabels=False)
+                yaxis=dict(scaleanchor="x", scaleratio=1, showgrid=False, zeroline=False, showticklabels=False)
             )
         )
 
-        py.plot(fig, filename=self.__project_path+'/out/'+self.out_dir_name+'/img/wind_farm.html')
+        py.plot(fig, filename=self.__project_path + '/out/' + self.out_dir_name + '/img/wind_farm.html')
 
         if high:
             self.__plot_high_quality(show=show, export=export)
