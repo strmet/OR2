@@ -223,7 +223,7 @@ class WindFarm:
             if point.power < -0.5:
                 model.variables.add(
                     types=[model.variables.type.continuous],
-                    names=["s({0})".format(h+1)],
+                    names=["s({0})".format(h + 1)],
                     obj=[1e9]
                 )
                 if self.__debug_mode:
@@ -267,7 +267,7 @@ class WindFarm:
 
         # Flow balancing constraint
         for h, point in enumerate(self.__points):
-            if point.power > 0.5:  # if it's a substation
+            if point.power > 0.5:  # if it's a turbine
                 summation = ["f({0},{1})".format(h + 1, j + 1) for j in range(self.__n_nodes) if h != j] \
                             + \
                             ["f({0},{1})".format(j + 1, h + 1) for j in range(self.__n_nodes) if h != j]
@@ -283,10 +283,10 @@ class WindFarm:
 
         # Maximum number of cables linked to a substation
         for h, point in enumerate(self.__points):
-            if point.power < -0.5:
-                constraint = ["y({0},{1})".format(i+1, h+1) for i in range(self.__n_nodes)] \
+            if point.power < -0.5:  # if it's a substation
+                constraint = ["y({0},{1})".format(i + 1, h + 1) for i in range(self.__n_nodes)] \
                              + \
-                             ["s({0})".format(h+1)]
+                             ["s({0})".format(h + 1)]
                 coefficients = [1] * self.__n_nodes + [-1]
                 model.linear_constraints.add(
                     lin_expr=[cplex.SparsePair(
@@ -313,7 +313,7 @@ class WindFarm:
                 rhs=[0]
             )
 
-        # Guarantee that the cable is enough for the connection
+        # We want to guarantee that the cable is enough for the connection
         for edge in edges:
             summation = ["f({0},{1})".format(edge.source + 1, edge.destination + 1)] \
                         + \
@@ -329,6 +329,42 @@ class WindFarm:
                 senses=["G"],
                 rhs=[0]
             )
+
+        # No-crossing constraints
+        for i, a in enumerate(self.__points):
+            # We want to lighten these constraints as much as possible;
+            # for this reason, j=i+1
+            for j, b in enumerate(self.__points[i+1:], start=i+1):
+                current_couple = ["y({0},{1})".format(i+1, j+1), "y({0},{1})".format(j+1, i+1)]
+                for k, c in enumerate(self.__points):
+                    # Skipping the points that do not occur in the (a,b) and (b,a) edges
+                    if not (c == a or c == b):
+                        """
+                        -   It may happen, a lot of times, that we get no crossings for a fixed (a,b) couple;
+                            therefore, we should add just one constraint (instead of several, useless, ones).
+                        """
+
+                        crossings = ["y({0},{1})".format(k+1, l+1)
+                                     for l,d in enumerate(self.__points[k+1:], start=k+1)
+                                     if self.__are_crossing(a,b,c,d)]
+
+                        """
+                        Simply, whenever we can't find crossings (i.e. Q\{(a,b),(b,a)} is empty), we add the simple
+                        constraint: y_ij + y_ji <= 1. And want to do it at most one time for any fixed (i,j).
+                        
+                        Instead, whenever a crossing is found, we add the constraint normally.
+                        """
+                        if len(crossings) > 0:
+                            summation =  crossings + current_couple
+                            coefficients = [1] * len(summation)
+                            model.linear_constraints.advanced.add_lazy_constraints(
+                                lin_expr=[cplex.SparsePair(
+                                    ind=summation,
+                                    val=coefficients
+                                )],
+                                senses=["L"],
+                                rhs=[1]
+                            )
 
         # Adding the parameters to the model
         model.parameters.mip.strategy.rinsheur.set(self.rins)
@@ -565,6 +601,7 @@ class WindFarm:
 
         self.__name = "Wind Farm 0" + str(wf_number)
 
+
     def __ypos(self, offset):
 
         """
@@ -620,6 +657,33 @@ class WindFarm:
         # show graph
         if show:
             plt.show()
+
+    def __are_crossing(self, pt1, pt2, pt3, pt4):
+        """
+        Recall that one edge has its extremes on (x_1,y_1) and (x_2,y_2);
+        the same goes for the second edge, which extremes are (x_3,y_3) and (x_4,y_4).
+
+        :param pt1: first point
+        :param pt2: second point
+        :param pt3: third point
+        :param pt4: fourth point
+        :return:
+        """
+        det_A = (pt4.x - pt3.x) * (pt1.y - pt2.y) - (pt4.y - pt3.y) * (pt1.x - pt2.x)
+        if det_A == 0:
+            return False
+
+        # If it's not zero, then the 2x2 system has exactly one solution, which is:
+        det_mu = (pt1.x - pt3.x) * (pt1.y - pt2.y) - (pt1.y - pt3.y) * (pt1.x - pt2.x)
+        det_lambda = (pt4.x - pt3.x) * (pt1.y - pt3.y) - (pt4.y - pt3.y) * (pt1.x - pt3.x)
+
+        mu = det_mu / det_A
+        lambd = det_lambda / det_A
+
+        if 0 < lambd < 1 and 0 < mu < 1:
+            return True
+        else:
+            return False
 
     # Get and set methods, in the Pythonic way
 
@@ -856,6 +920,9 @@ class WindFarm:
 
         if args.polishtime:
             self.polishtime = args.polishtime
+
+        self.__build_input_files()
+        self.__build_name()
 
     def read_input(self):
         """
