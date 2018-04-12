@@ -6,6 +6,7 @@ from collections import namedtuple
 from docplex.mp.model import Model
 import os.path
 import warnings
+import time
 import argparse
 import cplex
 import math
@@ -69,6 +70,8 @@ class WindFarm:
         self.time_limit = 60
         self.rins = 7
         self.polishtime = 45
+        self.__slack = True
+        self.cross_mode = 'no'
         self.__debug_mode = False
         self.verbosity = 0
         self.__interface = 'cplex'
@@ -168,86 +171,89 @@ class WindFarm:
             raise NameError("For some reason the classical model has been called when " +
                             "the 'interface' variable has been set to: " + self.__interface)
 
-        model = cplex.Cplex()
+        self.__model = cplex.Cplex()
 
-        model.set_problem_name(self.__name)
-        model.objective.set_sense(model.objective.sense.minimize)
+        self.__model.set_problem_name(self.__name)
+        self.__model.objective.set_sense(self.__model.objective.sense.minimize)
 
         edges = [self.__Edge(i, j) for i in range(self.__n_nodes) for j in range(self.__n_nodes)]
 
         # Add y(i,j) variables
-        self.__y_start = model.variables.get_num()
+        self.__y_start = self.__model.variables.get_num()
         name_y_edges = ["y({0},{1})".format(i + 1, j + 1) for i in range(self.__n_nodes) for j in range(self.__n_nodes)]
 
         for edge in name_y_edges:
-            model.variables.add(
-                types=[model.variables.type.binary],
+            self.__model.variables.add(
+                types=[self.__model.variables.type.binary],
                 names=[edge]
             )
             if self.__debug_mode:
-                if self.__ypos(index) != model.variables.get_num() - 1:
+                if self.__ypos(index) != self.__model.variables.get_num() - 1:
                     raise NameError('Number of variables and index do not match')
 
         # Add f(i,j) variables
-        self.__f_start = model.variables.get_num()
+        self.__f_start = self.__model.variables.get_num()
         name_f_edges = ["f({0},{1})".format(i + 1, j + 1) for i in range(self.__n_nodes) for j in range(self.__n_nodes)]
 
         for edge in name_f_edges:
-            model.variables.add(
-                types=[model.variables.type.continuous],
+            self.__model.variables.add(
+                types=[self.__model.variables.type.continuous],
                 names=[edge]
             )
             if self.__debug_mode:
-                if self.__fpos(index) != model.variables.get_num() - 1:
+                if self.__fpos(index) != self.__model.variables.get_num() - 1:
                     raise NameError('Number of variables and index do not match')
 
         # Add x(i,j,k) variables
-        self.__x_start = model.variables.get_num()
+        self.__x_start = self.__model.variables.get_num()
 
         for edge in edges:
             for k in range(self.__num_cables):
-                model.variables.add(
-                    types=[model.variables.type.binary],
+                self.__model.variables.add(
+                    types=[self.__model.variables.type.binary],
                     names=["x({0},{1},{2})".format(edge.source + 1, edge.destination + 1, k + 1)],
                     obj=[self.__cables[k].price *
                          WindFarm.get_distance(self.__points[edge.source], self.__points[edge.destination])]
                 )
                 if self.__debug_mode:
-                    if self.__xpos(index, k) != model.variables.get_num() - 1:
+                    if self.__xpos(index, k) != self.__model.variables.get_num() - 1:
                         raise NameError('Number of variables and index do not match')
 
-        # Add s(h) (slack) variables
-        self.__slack_start = model.variables.get_num()
+        if self.__slack:
+            # Add s(h) (slack) variables
+            self.__slack_start = self.__model.variables.get_num()
 
-        for h, point in enumerate(self.__points):
-            if point.power < -0.5:
-                model.variables.add(
-                    types=[model.variables.type.continuous],
-                    names=["s({0})".format(h + 1)],
-                    obj=[1e9]
-                )
-                if self.__debug_mode:
-                    if self.__slackpos(h) != model.variables.get_num() - 1:
-                        raise NameError('Number of variables and index do not match')
+            for h, point in enumerate(self.__points):
+                if point.power < -0.5:  # if it's a substation
+                    self.__model.variables.add(
+                        types=[self.__model.variables.type.continuous],
+                        names=["s({0})".format(h + 1)],
+                        obj=[1e9]
+                    )
+                    if self.__debug_mode:
+                        if self.__slackpos(h) != self.__model.variables.get_num() - 1:
+                            raise NameError('Number of variables and index do not match')
+        else:
+            self.__slack_start = -1
 
         # No self-loop constraint (on x,y,f)
         for i in range(self.__n_nodes):
-            model.variables.set_upper_bounds([("y({0},{1})".format(i + 1, i + 1), 0)])
+            self.__model.variables.set_upper_bounds([("y({0},{1})".format(i + 1, i + 1), 0)])
         for i in range(self.__n_nodes):
-            model.variables.set_upper_bounds([("f({0},{1})".format(i + 1, i + 1), 0)])
+            self.__model.variables.set_upper_bounds([("f({0},{1})".format(i + 1, i + 1), 0)])
         for i in range(self.__n_nodes):
             for k in range(self.__num_cables):
-                model.variables.set_upper_bounds([("x({0},{1},{2})".format(i + 1, i + 1, k + 1), 0)])
+                self.__model.variables.set_upper_bounds([("x({0},{1},{2})".format(i + 1, i + 1, k + 1), 0)])
 
         # Energy flow must be positive
         for i in range(self.__n_nodes):
             for j in range(self.__n_nodes):
-                model.variables.set_lower_bounds([("f({0},{1})".format(i + 1, j + 1), 0)])
+                self.__model.variables.set_lower_bounds([("f({0},{1})".format(i + 1, j + 1), 0)])
 
         # Out-degree constraints
         for h, point in enumerate(self.__points):
             if point.power < -0.5:  # if it's a substation
-                model.linear_constraints.add(
+                self.__model.linear_constraints.add(
                     lin_expr=[cplex.SparsePair(
                         ind=["y({0},{1})".format(h + 1, j + 1) for j in range(self.__n_nodes)],
                         val=[1.0] * self.__n_nodes
@@ -255,8 +261,8 @@ class WindFarm:
                     senses=["E"],
                     rhs=[0]
                 )
-            else:  # if it's a turbine
-                model.linear_constraints.add(
+            else:                   # if it's a turbine
+                self.__model.linear_constraints.add(
                     lin_expr=[cplex.SparsePair(
                         ind=["y({0},{1})".format(h + 1, j + 1) for j in range(self.__n_nodes)],
                         val=[1.0] * self.__n_nodes
@@ -272,7 +278,7 @@ class WindFarm:
                             + \
                             ["f({0},{1})".format(j + 1, h + 1) for j in range(self.__n_nodes) if h != j]
                 coefficients = [1] * (self.__n_nodes - 1) + [-1] * (self.__n_nodes - 1)
-                model.linear_constraints.add(
+                self.__model.linear_constraints.add(
                     lin_expr=[cplex.SparsePair(
                         ind=summation,
                         val=coefficients,
@@ -284,11 +290,12 @@ class WindFarm:
         # Maximum number of cables linked to a substation
         for h, point in enumerate(self.__points):
             if point.power < -0.5:  # if it's a substation
-                constraint = ["y({0},{1})".format(i + 1, h + 1) for i in range(self.__n_nodes)] \
-                             + \
-                             ["s({0})".format(h + 1)]
-                coefficients = [1] * self.__n_nodes + [-1]
-                model.linear_constraints.add(
+                constraint = ["y({0},{1})".format(i + 1, h + 1) for i in range(self.__n_nodes)]
+                coefficients = [1] * self.__n_nodes
+                if self.__slack:
+                    constraint += ["s({0})".format(h + 1)]
+                    coefficients += [-1]
+                self.__model.linear_constraints.add(
                     lin_expr=[cplex.SparsePair(
                         ind=constraint,
                         val=coefficients,
@@ -301,10 +308,10 @@ class WindFarm:
         for edge in edges:
             summation = ["y({0},{1})".format(edge.source + 1, edge.destination + 1)] \
                         + \
-                        ["x({0},{1},{2})".format(edge.source + 1, edge.destination + 1, k + 1) for k in
-                         range(self.__num_cables)]
+                        ["x({0},{1},{2})".format(edge.source + 1, edge.destination + 1, k + 1)
+                         for k in range(self.__num_cables)]
             coefficients = [1] + [-1] * self.__num_cables
-            model.linear_constraints.add(
+            self.__model.linear_constraints.add(
                 lin_expr=[cplex.SparsePair(
                     ind=summation,
                     val=coefficients,
@@ -317,11 +324,11 @@ class WindFarm:
         for edge in edges:
             summation = ["f({0},{1})".format(edge.source + 1, edge.destination + 1)] \
                         + \
-                        ["x({0},{1},{2})".format(edge.source + 1, edge.destination + 1, k + 1) for k in
-                         range(self.__num_cables)]
+                        ["x({0},{1},{2})".format(edge.source + 1, edge.destination + 1, k + 1)
+                         for k in range(self.__num_cables)]
             coefficients = [-1] + [cable.capacity for cable in self.__cables]
 
-            model.linear_constraints.add(
+            self.__model.linear_constraints.add(
                 lin_expr=[cplex.SparsePair(
                     ind=summation,
                     val=coefficients,
@@ -330,51 +337,31 @@ class WindFarm:
                 rhs=[0]
             )
 
-        # No-crossing constraints
-        for i, a in enumerate(self.__points):
-            # We want to lighten these constraints as much as possible;
-            # for this reason, j=i+1
-            for j, b in enumerate(self.__points[i+1:], start=i+1):
-                current_couple = ["y({0},{1})".format(i+1, j+1), "y({0},{1})".format(j+1, i+1)]
-                for k, c in enumerate(self.__points):
-                    # Skipping the points that do not occur in the (a,b) and (b,a) edges
-                    if not (c == a or c == b):
-                        """
-                        -   It may happen, a lot of times, that we get no crossings for a fixed (a,b) couple;
-                            therefore, we should add just one constraint (instead of several, useless, ones).
-                        """
+        # (in case) No-crossing constraints
+        if not self.cross_mode == 'no':
+            if self.cross_mode == 'lazy':
+                for i, a in enumerate(self.__points):
+                    # We want to lighten these constraints as much as possible; for this reason, j=i+1
+                    for j, b in enumerate(self.__points[i+1:], start=i+1):
+                        for k, c in enumerate(self.__points):
+                            self.__add_violating_constraint(i,j,k)
+            elif self.cross_mode == 'loop':
+                """
+                da fare...
+                """
 
-                        crossings = ["y({0},{1})".format(k+1, l+1)
-                                     for l,d in enumerate(self.__points[k+1:], start=k+1)
-                                     if self.__are_crossing(a,b,c,d)]
+            elif self.cross_mode == 'callback':
+                raise Exception("Callbacks not ready yet!")
+            else:
+                raise ValueError("Unrecognized 'no-crossing' strategy value; given: " + self.cross_mode)
 
-                        """
-                        Simply, whenever we can't find crossings (i.e. Q\{(a,b),(b,a)} is empty), we add the simple
-                        constraint: y_ij + y_ji <= 1. And want to do it at most one time for any fixed (i,j).
-                        
-                        Instead, whenever a crossing is found, we add the constraint normally.
-                        """
-                        if len(crossings) > 0:
-                            summation =  crossings + current_couple
-                            coefficients = [1] * len(summation)
-                            model.linear_constraints.advanced.add_lazy_constraints(
-                                lin_expr=[cplex.SparsePair(
-                                    ind=summation,
-                                    val=coefficients
-                                )],
-                                senses=["L"],
-                                rhs=[1]
-                            )
-
-        # Adding the parameters to the model
-        model.parameters.mip.strategy.rinsheur.set(self.rins)
-        model.parameters.mip.polishafter.time.set(self.polishtime)
-        model.parameters.timelimit.set(self.time_limit)
+        # Adding the parameters to the self.__model
+        self.__model.parameters.mip.strategy.rinsheur.set(self.rins)
+        self.__model.parameters.mip.polishafter.time.set(self.polishtime)
+        self.__model.parameters.timelimit.set(self.time_limit)
 
         # Writing the model to a proper location
-        model.write(self.__project_path + "/out/" + self.out_dir_name + "/lpmodel.lp")
-
-        return model
+        self.__model.write(self.__project_path + "/out/" + self.out_dir_name + "/lpmodel.lp")
 
     def __build_model_docplex(self):
 
@@ -601,7 +588,6 @@ class WindFarm:
 
         self.__name = "Wind Farm 0" + str(wf_number)
 
-
     def __ypos(self, offset):
 
         """
@@ -685,152 +671,64 @@ class WindFarm:
         else:
             return False
 
-    # Get and set methods, in the Pythonic way
+    def __get_violated_edges(self):
+        """
+        This function gets a list of chosen edges (ys) and returns a list of violated edges
+        :param ys: chosen edges
+        :return: a list of violated edges in the (a,b,c,d)-tuple form
+        """
 
-    @property
-    def out_dir_name(self):
-        return self.__out_dir_name
+        # Gets the values from the model
+        ys = [self.__Edge(i+1,j+1)
+              for i in range(self.__n_nodes)
+              for j in range(self.__n_nodes)]
+        ys_values = self.__model.solution.get_values(["y({0},{1})".format(i+1,j+1)
+                                                      for i in range(self.__n_nodes)
+                                                      for j in range(self.__n_nodes)])
+        # extracts only the selected edges
+        ones = [ys[i] for i,y in enumerate(ys_values) if y>0.5]
 
-    @out_dir_name.setter
-    def out_dir_name(self, d):
-        if not type(d) == str:
-            warnings.warn("Out path not given as string. Trying a conversion.", ValueWarning)
-            d = str(d)
-        if not os.path.exists(self.__project_path + '/out/' + d):
-            os.makedirs(self.__project_path + '/out/' + d)
-        if not os.path.exists(self.__project_path + '/out/' + d + '/img'):
-            os.makedirs(self.__project_path + '/out/' + d + '/img')
-        self.__out_dir_name = d
+        # extracts the violated edges:
+        # recall that we're interested in the (a,b,c,d) tuple,
+        # rather than the two corresponding edges.
 
-    @property
-    def data_select(self):
-        return self.__data_select
+        violated = [(v.source, v.destination, u.source, u.destination)
+                    for i,v in enumerate(ones)
+                    for u in ones[i+1:]
+                    if self.__are_crossing(self.__points[v.source-1],
+                                           self.__points[v.destination-1],
+                                           self.__points[u.source-1],
+                                           self.__points[u.destination-1])]
 
-    @data_select.setter
-    def data_select(self, d):
-        if not type(d) == int:
-            raise TypeError("Expecting an integer value representing the dataset. Given: " + str(d))
-        if d <= 0 or d >= 31:
-            raise ValueError("The dataset you're trying to reach is out of range.\n" +
-                             "Range: [1-30]. Given: " + str(d))
-        self.__data_select = d
+        return violated
 
-    @property
-    def time_limit(self):
-        return self.__time_limit
+    def __add_violating_constraint(self, i,j,k):
+        # Skipping the points that do not occur in the (a,b) and (b,a) edges
+        a = self.__points[i]
+        b = self.__points[j]
+        c = self.__points[k]
 
-    @time_limit.setter
-    def time_limit(self, t):
-        if not type(t) == int:
-            raise TypeError("Timeout time should be given as an integer; given: " + str(t))
-        if t <= 3:
-            raise TimeoutError("It doesn't make sense to run this program for less than 3 seconds; given: "
-                               + str(t))
-        self.__time_limit = t
-
-    @property
-    def rins(self):
-        return self.__rins
-
-    @rins.setter
-    def rins(self, freq):
-        if not type(freq) == int:
-            raise TypeError("The frequency at which RINS will be applied should be an integer; given: " + str(freq))
-        if freq < -1:
-            raise ValueError("Invalid RINS parameter. Integer values above -1 are OK; given: " + str(freq))
-        self.__rins = freq
-
-    @property
-    def polishtime(self):
-        return self.__polishtime
-
-    @polishtime.setter
-    def polishtime(self, t):
-        if not type(t) == int:
-            raise TypeError("Polish time should be an integer; given: " + str(t))
-        if t <= 3:
-            raise TimeoutError("Can't start polishing within just 3 seconds;  given: " + str(t))
-        if t >= self.time_limit:
-            raise TimeoutError("Polishing can't start after the timeout limit (" +
-                               str(self.time_limit) + "); given: " + str(t))
-        self.__polishtime = t
-
-    @property
-    def num_cables(self):
-        return self.__num_cables
-
-    @num_cables.setter
-    def num_cables(self, nc):
-        if not type(nc) == int:
-            raise TypeError("The number of cables must be a positive integer number; given:" + str(nc))
-        if not nc >= 0:
-            raise AttributeError("The number of cables must be a positive integer number; given:" + str(nc))
-        self.__num_cables = nc
-
-    @property
-    def cluster(self):
-        return self.__cluster
-
-    @cluster.setter
-    def cluster(self, c):
-        if not type(c) == bool:
-            raise TypeError("Expecting 'cluster' to be a boolean, either set True or False; given:" + str(c))
-        self.__cluster = c
-
-    @property
-    def c(self):
-        return self.__c
-
-    @c.setter
-    def c(self, c):
-        if not type(c) == int:
-            raise TypeError("The parameter 'c' must be a positive, INTEGER number; given: " + str(c))
-        if c <= 0:
-            warnings.warn("Substations must accept at least one cable; setting 'c' to its default value (10)",
-                          ValueWarning)
-            self.__c = 10
+        if self.cross_mode=='lazy':
+            constraint_add = self.__model.linear_constraints.advanced.add_lazy_constraints
         else:
-            self.__c = c
+            constraint_add = self.__model.linear_constraints.add
 
-    @property
-    def interface(self):
-        return self.__interface
-
-    @interface.setter
-    def interface(self, choice):
-        if not type(choice) == str:
-            warnings.warn("Choice not given as a string. Trying a conversion.", ValueWarning)
-            choice = str(choice)
-        if choice != "cplex" and choice != "docplex":
-            raise NameError(
-                "It is possible to choose either 'cplex' or 'docplex' as opt libraries; given: " + choice)
-        self.__interface = choice
-
-    @property
-    def turb_file(self):
-        return self.__turb_file
-
-    @turb_file.setter
-    def turb_file(self, fname):
-        if not type(fname) == str:
-            warnings.warn("Turbines filename not given as string. Trying a conversion.", ValueWarning)
-            fname = str(fname)
-        if not os.path.isfile(fname):
-            raise FileNotFoundError("Can't find the '.trb' file; filename given: " + fname)
-        self.__turb_file = fname
-
-    @property
-    def cbl_file(self):
-        return self.__cbl_file
-
-    @cbl_file.setter
-    def cbl_file(self, fname):
-        if not type(fname) == str:
-            warnings.warn("Cables filename not given as string. Trying a conversion.", ValueWarning)
-            fname = str(fname)
-        if not os.path.isfile(fname):
-            raise FileNotFoundError("Can't find the '.cbl' file; filename given: " + fname)
-        self.__cbl_file = fname
+        if not (c == a or c == b):
+            current_couple = ["y({0},{1})".format(i+1, j+1), "y({0},{1})".format(j+1, i+1)]
+            crossings = ["y({0},{1})".format(k+1, l+1)
+                         for l,d in enumerate(self.__points[k+1:], start=k+1)
+                         if self.__are_crossing(a,b,c,d)]
+            if len(crossings) > 0:
+                summation =  crossings + current_couple
+                coefficients = [1] * len(summation)
+                constraint_add(
+                    lin_expr=[cplex.SparsePair(
+                        ind=summation,
+                        val=coefficients
+                    )],
+                    senses=["L"],
+                    rhs=[1]
+                )
 
     def build_model(self):
         """
@@ -839,7 +737,7 @@ class WindFarm:
         """
 
         if self.__interface == 'cplex':
-            self.__model = self.__build_model_cplex()
+            self.__build_model_cplex()
         elif self.__interface == 'docplex':
             self.__model = self.__build_model_docplex()
         else:
@@ -851,7 +749,39 @@ class WindFarm:
         """
         Simply solves the problem by invoking the .solve() method within the model selected.
         """
-        self.__model.solve()
+        if self.cross_mode == 'lazy' or self.cross_mode == 'no':
+            # This simply means that CPLEX has everything he needs to have inside his enviroment
+            self.__model.solve()
+        elif self.cross_mode == 'loop':
+            xs = True       # "are there any crosses in this solution?"
+            opt = False     # "has the optimum been reached?"
+            starting_time = time.time()
+            current_time = time.time()
+            while xs and not opt and current_time-starting_time < 600:
+                self.__model.solve()
+
+                crossed = self.__get_violated_edges()
+                print(crossed)
+
+                if len(crossed) > 0:
+                    for xs in crossed:
+                        self.__add_violating_constraint(xs[0], xs[1], xs[2])
+                        self.__add_violating_constraint(xs[2], xs[3], xs[0])
+                else:
+                    # No crossings detected? Check.
+                    xs = False
+
+                if self.__model.solution.get_status() == self.__model.solution.status.MIP_optimal:
+                    # Optimality reached? Check.
+                    opt = True
+                current_time = time.time()
+
+
+        elif self.cross_mode == 'callback':
+            # Something will happen here...
+            raise ValueError("Callbacks not available, yet!")
+        else:
+            raise ValueError("Unrecognized cross-strategy; given: " + str(self.cross_mode))
 
     def write_solutions(self):
         """
@@ -879,13 +809,17 @@ class WindFarm:
         parser.add_argument('--dataset', type=int, help="dataset selection; datasets available: [1,29]. " +
                                                         "You can use '30' for debug purposes")
         parser.add_argument('--cluster', action="store_true", help='type --cluster if you want to use the cluster')
-        parser.add_argument('--interface', choices=['docplex', 'cplex'], help='Choose interface ')
+        parser.add_argument('--interface', choices=['docplex', 'cplex'], help='Choose the interface ')
         parser.add_argument('--C', type=int, help='the maximum number of cables linked to a substation')
         parser.add_argument('--rins', type=int, help='the frequency with which the RINS Heuristic will be applied')
         parser.add_argument('--timeout', type=int, help='timeout in which the optimizer will stop iterating')
         parser.add_argument('--polishtime', type=int, help='the time to wait before applying polishing')
         parser.add_argument('--outfolder', type=str, help='name of the folder to be created inside the /out' +
                                                           ' directory, which contains everything related to this run')
+        parser.add_argument('--noslack', action="store_true",
+                            help='type --noslack if you do not want the soft version of the problem')
+        parser.add_argument('--crossings', choices=['no', 'lazy', 'loop', 'callback'],
+                            help='Choose how you want to address the crossing problem')
 
         args = parser.parse_args()
 
@@ -921,6 +855,13 @@ class WindFarm:
         if args.polishtime:
             self.polishtime = args.polishtime
 
+        if args.noslack:
+            self.__slack = False
+
+        if args.crossings:
+            self.cross_mode = args.crossings
+
+        # Since the parameters have been updated, We must re-build the input files, names, etc.
         self.__build_input_files()
         self.__build_name()
 
@@ -1029,3 +970,158 @@ class WindFarm:
             +
             (point1.y - point2.y) ** 2
         )
+
+    # Get and set methods, in the Pythonic way
+
+    @property
+    def cross_mode(self):
+        return self.__cross_mode
+
+    @cross_mode.setter
+    def cross_mode(self, cm):
+        if not (cm=='no' or cm=='lazy' or cm=='loop' or cm=='callback'):
+            raise ValueError("Unrecognized crossing strategy; given: "+str(cm))
+        self.__cross_mode = cm
+
+    @property
+    def out_dir_name(self):
+        return self.__out_dir_name
+
+    @out_dir_name.setter
+    def out_dir_name(self, d):
+        if not type(d) == str:
+            warnings.warn("Out path not given as string. Trying a conversion.", ValueWarning)
+            d = str(d)
+        if not os.path.exists(self.__project_path + '/out/' + d):
+            os.makedirs(self.__project_path + '/out/' + d)
+        if not os.path.exists(self.__project_path + '/out/' + d + '/img'):
+            os.makedirs(self.__project_path + '/out/' + d + '/img')
+        self.__out_dir_name = d
+
+    @property
+    def data_select(self):
+        return self.__data_select
+
+    @data_select.setter
+    def data_select(self, d):
+        if not type(d) == int:
+            raise TypeError("Expecting an integer value representing the dataset. Given: " + str(d))
+        if d <= -1 or d >= 31:
+            raise ValueError("The dataset you're trying to reach is out of range.\n" +
+                             "Range: [0-30]. Given: " + str(d))
+        self.__data_select = d
+
+    @property
+    def time_limit(self):
+        return self.__time_limit
+
+    @time_limit.setter
+    def time_limit(self, t):
+        if not type(t) == int:
+            raise TypeError("Timeout time should be given as an integer; given: " + str(t))
+        if t <= 3:
+            raise TimeoutError("It doesn't make sense to run this program for less than 3 seconds; given: "
+                               + str(t))
+        self.__time_limit = t
+
+    @property
+    def rins(self):
+        return self.__rins
+
+    @rins.setter
+    def rins(self, freq):
+        if not type(freq) == int:
+            raise TypeError("The frequency at which RINS will be applied should be an integer; given: " + str(freq))
+        if freq < -1:
+            raise ValueError("Invalid RINS parameter. Integer values above -1 are OK; given: " + str(freq))
+        self.__rins = freq
+
+    @property
+    def polishtime(self):
+        return self.__polishtime
+
+    @polishtime.setter
+    def polishtime(self, t):
+        if not type(t) == int:
+            raise TypeError("Polish time should be an integer; given: " + str(t))
+        if t <= 3:
+            raise TimeoutError("Can't start polishing within just 3 seconds;  given: " + str(t))
+
+        self.__polishtime = t
+
+    @property
+    def num_cables(self):
+        return self.__num_cables
+
+    @num_cables.setter
+    def num_cables(self, nc):
+        if not type(nc) == int:
+            raise TypeError("The number of cables must be a positive integer number; given:" + str(nc))
+        if not nc >= 0:
+            raise AttributeError("The number of cables must be a positive integer number; given:" + str(nc))
+        self.__num_cables = nc
+
+    @property
+    def cluster(self):
+        return self.__cluster
+
+    @cluster.setter
+    def cluster(self, c):
+        if not type(c) == bool:
+            raise TypeError("Expecting 'cluster' to be a boolean, either set True or False; given:" + str(c))
+        self.__cluster = c
+
+    @property
+    def c(self):
+        return self.__c
+
+    @c.setter
+    def c(self, c):
+        if not type(c) == int:
+            raise TypeError("The parameter 'c' must be a positive, INTEGER number; given: " + str(c))
+        if c <= 0:
+            warnings.warn("Substations must accept at least one cable; setting 'c' to its default value (10)",
+                          ValueWarning)
+            self.__c = 10
+        else:
+            self.__c = c
+
+    @property
+    def interface(self):
+        return self.__interface
+
+    @interface.setter
+    def interface(self, choice):
+        if not type(choice) == str:
+            warnings.warn("Choice not given as a string. Trying a conversion.", ValueWarning)
+            choice = str(choice)
+        if choice != "cplex" and choice != "docplex":
+            raise NameError(
+                "It is possible to choose either 'cplex' or 'docplex' as opt libraries; given: " + choice)
+        self.__interface = choice
+
+    @property
+    def turb_file(self):
+        return self.__turb_file
+
+    @turb_file.setter
+    def turb_file(self, fname):
+        if not type(fname) == str:
+            warnings.warn("Turbines filename not given as string. Trying a conversion.", ValueWarning)
+            fname = str(fname)
+        if not os.path.isfile(fname):
+            raise FileNotFoundError("Can't find the '.trb' file; filename given: " + fname)
+        self.__turb_file = fname
+
+    @property
+    def cbl_file(self):
+        return self.__cbl_file
+
+    @cbl_file.setter
+    def cbl_file(self, fname):
+        if not type(fname) == str:
+            warnings.warn("Cables filename not given as string. Trying a conversion.", ValueWarning)
+            fname = str(fname)
+        if not os.path.isfile(fname):
+            raise FileNotFoundError("Can't find the '.cbl' file; filename given: " + fname)
+        self.__cbl_file = fname

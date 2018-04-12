@@ -13,14 +13,14 @@
    primalFeasible="1"
    dualFeasible="1"
    MIPNodes="0"
-   MIPIterations="26"
+   MIPIterations="31"
    writeLevel="1"/>
  <quality
    epInt="1.0000000000000001e-05"
    epRHS="9.9999999999999995e-07"
    maxIntInfeas="0"
-   maxPrimalInfeas="1.4210854715202004e-14"
-   maxX="5.0000000000000142"
+   maxPrimalInfeas="2.2204460492503131e-16"
+   maxX="5"
    maxSlack="6"/>
  <linearConstraints>
   <constraint index="0" slack="0"/>
@@ -29,9 +29,9 @@
   <constraint index="3" slack="0"/>
   <constraint index="4" slack="0"/>
   <constraint index="5" slack="0"/>
-  <constraint index="6" slack="-1.4210854715202004e-14"/>
+  <constraint index="6" slack="-2.2204460492503131e-16"/>
   <constraint index="7" slack="0"/>
-  <constraint index="8" slack="0"/>
+  <constraint index="8" slack="2.2204460492503131e-16"/>
   <constraint index="9" slack="0"/>
   <constraint index="10" slack="0"/>
   <constraint index="11" slack="6"/>
@@ -80,7 +80,7 @@
   <constraint index="54" slack="0"/>
   <constraint index="55" slack="0"/>
   <constraint index="56" slack="0"/>
-  <constraint index="57" slack="-3.9999999999999858"/>
+  <constraint index="57" slack="-4"/>
   <constraint index="58" slack="0"/>
   <constraint index="59" slack="0"/>
   <constraint index="60" slack="0"/>
@@ -93,15 +93,15 @@
   <constraint index="67" slack="0"/>
   <constraint index="68" slack="0"/>
   <constraint index="69" slack="0"/>
-  <constraint index="70" slack="-2.9999999999999858"/>
+  <constraint index="70" slack="-3"/>
   <constraint index="71" slack="0"/>
   <constraint index="72" slack="0"/>
   <constraint index="73" slack="0"/>
   <constraint index="74" slack="0"/>
   <constraint index="75" slack="0"/>
   <constraint index="76" slack="0"/>
-  <constraint index="77" slack="-0.99999999999998579"/>
-  <constraint index="78" slack="1.4210854715202004e-14"/>
+  <constraint index="77" slack="-1"/>
+  <constraint index="78" slack="0"/>
   <constraint index="79" slack="0"/>
   <constraint index="80" slack="0"/>
   <constraint index="81" slack="0"/>
@@ -154,7 +154,7 @@
   <variable name="f(2,1)" index="42" value="0"/>
   <variable name="f(2,2)" index="43" value="0"/>
   <variable name="f(2,3)" index="44" value="0"/>
-  <variable name="f(2,4)" index="45" value="1.0000000000000142"/>
+  <variable name="f(2,4)" index="45" value="1.0000000000000002"/>
   <variable name="f(2,5)" index="46" value="0"/>
   <variable name="f(2,6)" index="47" value="0"/>
   <variable name="f(3,1)" index="48" value="0"/>
@@ -167,15 +167,15 @@
   <variable name="f(4,2)" index="55" value="0"/>
   <variable name="f(4,3)" index="56" value="0"/>
   <variable name="f(4,4)" index="57" value="0"/>
-  <variable name="f(4,5)" index="58" value="2.0000000000000142"/>
+  <variable name="f(4,5)" index="58" value="2"/>
   <variable name="f(4,6)" index="59" value="0"/>
   <variable name="f(5,1)" index="60" value="0"/>
   <variable name="f(5,2)" index="61" value="0"/>
   <variable name="f(5,3)" index="62" value="0"/>
   <variable name="f(5,4)" index="63" value="0"/>
   <variable name="f(5,5)" index="64" value="0"/>
-  <variable name="f(5,6)" index="65" value="4.0000000000000142"/>
-  <variable name="f(6,1)" index="66" value="5.0000000000000142"/>
+  <variable name="f(5,6)" index="65" value="4"/>
+  <variable name="f(6,1)" index="66" value="5"/>
   <variable name="f(6,2)" index="67" value="0"/>
   <variable name="f(6,3)" index="68" value="0"/>
   <variable name="f(6,4)" index="69" value="0"/>
@@ -206,10 +206,10 @@
   <variable name="x(2,2,2)" index="94" value="0"/>
   <variable name="x(2,2,3)" index="95" value="0"/>
   <variable name="x(2,3,1)" index="96" value="0"/>
-  <variable name="x(2,3,2)" index="97" value="-0"/>
+  <variable name="x(2,3,2)" index="97" value="0"/>
   <variable name="x(2,3,3)" index="98" value="-0"/>
   <variable name="x(2,4,1)" index="99" value="1"/>
-  <variable name="x(2,4,2)" index="100" value="-0"/>
+  <variable name="x(2,4,2)" index="100" value="0"/>
   <variable name="x(2,4,3)" index="101" value="-0"/>
   <variable name="x(2,5,1)" index="102" value="-0"/>
   <variable name="x(2,5,2)" index="103" value="-0"/>
@@ -221,7 +221,7 @@
   <variable name="x(3,1,2)" index="109" value="-0"/>
   <variable name="x(3,1,3)" index="110" value="-0"/>
   <variable name="x(3,2,1)" index="111" value="-0"/>
-  <variable name="x(3,2,2)" index="112" value="-0"/>
+  <variable name="x(3,2,2)" index="112" value="0"/>
   <variable name="x(3,2,3)" index="113" value="-0"/>
   <variable name="x(3,3,1)" index="114" value="0"/>
   <variable name="x(3,3,2)" index="115" value="0"/>
@@ -230,7 +230,7 @@
   <variable name="x(3,4,2)" index="118" value="-0"/>
   <variable name="x(3,4,3)" index="119" value="-0"/>
   <variable name="x(3,5,1)" index="120" value="1"/>
-  <variable name="x(3,5,2)" index="121" value="0"/>
+  <variable name="x(3,5,2)" index="121" value="-0"/>
   <variable name="x(3,5,3)" index="122" value="-0"/>
   <variable name="x(3,6,1)" index="123" value="-0"/>
   <variable name="x(3,6,2)" index="124" value="-0"/>
@@ -238,8 +238,8 @@
   <variable name="x(4,1,1)" index="126" value="-0"/>
   <variable name="x(4,1,2)" index="127" value="-0"/>
   <variable name="x(4,1,3)" index="128" value="-0"/>
-  <variable name="x(4,2,1)" index="129" value="0"/>
-  <variable name="x(4,2,2)" index="130" value="-0"/>
+  <variable name="x(4,2,1)" index="129" value="-0"/>
+  <variable name="x(4,2,2)" index="130" value="0"/>
   <variable name="x(4,2,3)" index="131" value="-0"/>
   <variable name="x(4,3,1)" index="132" value="-0"/>
   <variable name="x(4,3,2)" index="133" value="-0"/>
@@ -257,7 +257,7 @@
   <variable name="x(5,1,2)" index="145" value="-0"/>
   <variable name="x(5,1,3)" index="146" value="-0"/>
   <variable name="x(5,2,1)" index="147" value="-0"/>
-  <variable name="x(5,2,2)" index="148" value="-0"/>
+  <variable name="x(5,2,2)" index="148" value="0"/>
   <variable name="x(5,2,3)" index="149" value="-0"/>
   <variable name="x(5,3,1)" index="150" value="0"/>
   <variable name="x(5,3,2)" index="151" value="-0"/>
@@ -275,7 +275,7 @@
   <variable name="x(6,1,2)" index="163" value="0"/>
   <variable name="x(6,1,3)" index="164" value="-0"/>
   <variable name="x(6,2,1)" index="165" value="-0"/>
-  <variable name="x(6,2,2)" index="166" value="-0"/>
+  <variable name="x(6,2,2)" index="166" value="0"/>
   <variable name="x(6,2,3)" index="167" value="-0"/>
   <variable name="x(6,3,1)" index="168" value="-0"/>
   <variable name="x(6,3,2)" index="169" value="-0"/>
