@@ -47,6 +47,7 @@ class WindFarm:
         # Input data variables
         self.__n_nodes = 0
         self.__num_cables = 0
+        self.__n_substations = 0
         self.__points = []
         self.__cables = []
         self.c = 10
@@ -59,7 +60,7 @@ class WindFarm:
 
         # Named tuples, describing input data
         self.__Edge = namedtuple("Edge", ["source", "destination"])
-        self.__Point = namedtuple("Point", ["x", "y", "power"])
+        self.__Point = namedtuple("Point", ["id", "x", "y", "power"])
         self.__Cable = namedtuple("Cable", ["capacity", "price", "max_usage"])
         self.__CableSol = namedtuple("CableSol", ["source", "destination", "capacity"])
 
@@ -94,12 +95,17 @@ class WindFarm:
         points = []
 
         # the following opens and closes the file within the block
+        i=1
         with open(self.turb_file, "r") as fp:
             for line in fp:
                 words = list(map(int, line.split()))
-                points.append(self.__Point(words[0], words[1], words[2]))
+                points.append(self.__Point(i, words[0], words[1], words[2]))
+                if int(words[2]) < 0.5:
+                    self.__n_substations += 1
+                i+=1
 
         self.__n_nodes = len(points)
+        self.__n_turbines = self.__n_nodes - self.__n_substations
         self.__points = points
 
     def __read_cables_file(self):
@@ -123,32 +129,38 @@ class WindFarm:
         self.__num_cables = len(cables)
         self.__cables = cables
 
-    def __fpos(self, offset):
-
+    def __fpos(self, i_off, j_off):
         """
-        py:function:: __fpos(offset, self)
 
+        :param i_off:
+        :param j_off:
+        :return:
+        """
+
+        return self.__f_start + i_off*self.__n_nodes + j_off
+
+    def __xpos(self, i_off, j_off, k_off):
+        """
         .. description missing ..
-
-        :param offset: Offset w.r.t fstart and the edge indexed by (i, j)
-
+        :param i_off:
+        :param j_off:
+        :param k_off:
+        :return:
         """
-        return self.__f_start + offset
 
-    def __xpos(self, offset, k):
+        return self.__x_start + i_off*self.__n_nodes*self.__num_cables + j_off*self.__num_cables + k_off
 
+    def __ypos(self, i_off, j_off):
         """
-        py:function:: __xpos(offset, k, inst)
 
-        .. description missing ..
-
-        :param offset: Offset w.r.t xstart and the edge indexed by (i, j)
-        :param k: index of the cable considered
-
+        :param i_off:
+        :param j_off:
+        :return:
         """
-        return self.__x_start + offset * self.__num_cables + k
 
-    def __slackpos(self, offset):
+        return self.__y_start + i_off*self.__n_nodes + j_off
+
+    def __slackpos(self, slack_off):
 
         """
         py:function:: __slackpos(offset, k, inst)
@@ -158,7 +170,7 @@ class WindFarm:
         :param offset: Offset w.r.t slackstart and the substation indexed by h
 
         """
-        return self.__slack_start + offset
+        return self.__slack_start + slack_off
 
     def __build_model_cplex(self):
 
@@ -176,188 +188,179 @@ class WindFarm:
         self.__model.set_problem_name(self.__name)
         self.__model.objective.set_sense(self.__model.objective.sense.minimize)
 
-        edges = [self.__Edge(i, j) for i in range(self.__n_nodes) for j in range(self.__n_nodes)]
-
         # Add y(i,j) variables
         self.__y_start = self.__model.variables.get_num()
-        name_y_edges = ["y({0},{1})".format(i + 1, j + 1) for i in range(self.__n_nodes) for j in range(self.__n_nodes)]
-
-        for edge in name_y_edges:
-            self.__model.variables.add(
-                types=[self.__model.variables.type.binary],
-                names=[edge]
-            )
-            if self.__debug_mode:
-                if self.__ypos(index) != self.__model.variables.get_num() - 1:
-                    raise NameError('Number of variables and index do not match')
+        self.__model.variables.add(
+            types=[self.__model.variables.type.binary]
+                  * self.__n_nodes
+                  * self.__n_nodes,
+            names=["y({0},{1})".format(i+1, j+1)
+                   for i in range(self.__n_nodes)
+                   for j in range(self.__n_nodes)]
+        )
 
         # Add f(i,j) variables
         self.__f_start = self.__model.variables.get_num()
-        name_f_edges = ["f({0},{1})".format(i + 1, j + 1) for i in range(self.__n_nodes) for j in range(self.__n_nodes)]
-
-        for edge in name_f_edges:
-            self.__model.variables.add(
-                types=[self.__model.variables.type.continuous],
-                names=[edge]
-            )
-            if self.__debug_mode:
-                if self.__fpos(index) != self.__model.variables.get_num() - 1:
-                    raise NameError('Number of variables and index do not match')
+        self.__model.variables.add(
+            types=[self.__model.variables.type.continuous]
+                  * self.__n_nodes
+                  * self.__n_nodes,
+            names=["f({0},{1})".format(i+1, j+1)
+                   for i in range(self.__n_nodes)
+                   for j in range(self.__n_nodes)]
+        )
 
         # Add x(i,j,k) variables
         self.__x_start = self.__model.variables.get_num()
-
-        for edge in edges:
-            for k in range(self.__num_cables):
-                self.__model.variables.add(
-                    types=[self.__model.variables.type.binary],
-                    names=["x({0},{1},{2})".format(edge.source + 1, edge.destination + 1, k + 1)],
-                    obj=[self.__cables[k].price *
-                         WindFarm.get_distance(self.__points[edge.source], self.__points[edge.destination])]
-                )
-                if self.__debug_mode:
-                    if self.__xpos(index, k) != self.__model.variables.get_num() - 1:
-                        raise NameError('Number of variables and index do not match')
+        self.__model.variables.add(
+            types=[self.__model.variables.type.binary]
+                  * self.__n_nodes
+                  * self.__n_nodes
+                  * self.__num_cables,
+            names=["x({0},{1},{2})".format(i+1, j+1, k+1)
+                   for i in range(self.__n_nodes)
+                   for j in range(self.__n_nodes)
+                   for k in range(self.__num_cables)],
+            obj=[cable.price * WindFarm.get_distance(v,u)
+                 for v in self.__points
+                 for u in self.__points
+                 for cable in self.__cables]
+        )
 
         if self.__slack:
             # Add s(h) (slack) variables
             self.__slack_start = self.__model.variables.get_num()
-
-            for h, point in enumerate(self.__points):
-                if point.power < -0.5:  # if it's a substation
-                    self.__model.variables.add(
-                        types=[self.__model.variables.type.continuous],
-                        names=["s({0})".format(h + 1)],
-                        obj=[1e9]
-                    )
-                    if self.__debug_mode:
-                        if self.__slackpos(h) != self.__model.variables.get_num() - 1:
-                            raise NameError('Number of variables and index do not match')
+            self.__model.variables.add(
+                types=[self.__model.variables.type.continuous]
+                      * self.__n_substations,
+                names=["s({0})".format(h+1)
+                       for h, point in enumerate(self.__points)
+                       if point.power < -0.5],
+                obj=[1e9] * self.__n_substations
+            )
         else:
+            # No variables should be added, then.
             self.__slack_start = -1
 
-        # No self-loop constraint (on x,y,f)
-        for i in range(self.__n_nodes):
-            self.__model.variables.set_upper_bounds([("y({0},{1})".format(i + 1, i + 1), 0)])
-        for i in range(self.__n_nodes):
-            self.__model.variables.set_upper_bounds([("f({0},{1})".format(i + 1, i + 1), 0)])
-        for i in range(self.__n_nodes):
-            for k in range(self.__num_cables):
-                self.__model.variables.set_upper_bounds([("x({0},{1},{2})".format(i + 1, i + 1, k + 1), 0)])
+        # No self-loop constraints on y(i,i) = 0 \forall i
+        self.__model.variables.set_upper_bounds([
+            (self.__ypos(i,i), 0)
+            for i in range(self.__n_nodes)
+        ])
+
+        # No self-loop constraints on f(i,i) = 0 \forall i
+        self.__model.variables.set_upper_bounds([
+            (self.__fpos(i,i), 0)
+            for i in range(self.__n_nodes)
+        ])
+
+        # No self-loop constraints on x(i,i,k) = 0 \forall i,k
+        self.__model.variables.set_upper_bounds([
+            (self.__xpos(i,i,k), 0)
+            for i in range(self.__n_nodes)
+            for k in range(self.__num_cables)
+        ])
 
         # Energy flow must be positive
-        for i in range(self.__n_nodes):
-            for j in range(self.__n_nodes):
-                self.__model.variables.set_lower_bounds([("f({0},{1})".format(i + 1, j + 1), 0)])
+        self.__model.variables.set_lower_bounds([
+            (self.__fpos(i,j), 0)
+            for i in range(self.__n_nodes)
+            for j in range(self.__n_nodes)
+        ])
 
-        # Out-degree constraints
-        for h, point in enumerate(self.__points):
-            if point.power < -0.5:  # if it's a substation
-                self.__model.linear_constraints.add(
-                    lin_expr=[cplex.SparsePair(
-                        ind=["y({0},{1})".format(h + 1, j + 1) for j in range(self.__n_nodes)],
-                        val=[1.0] * self.__n_nodes
-                    )],
-                    senses=["E"],
-                    rhs=[0]
-                )
-            else:                   # if it's a turbine
-                self.__model.linear_constraints.add(
-                    lin_expr=[cplex.SparsePair(
-                        ind=["y({0},{1})".format(h + 1, j + 1) for j in range(self.__n_nodes)],
-                        val=[1.0] * self.__n_nodes
-                    )],
-                    senses=["E"],
-                    rhs=[1]
-                )
+        # Out-degree constraints (substations)
+        self.__model.linear_constraints.add(
+            lin_expr=[cplex.SparsePair(
+                ind=[self.__ypos(h,j) for j in range(self.__n_nodes)],
+                val=[1.0] * self.__n_nodes
+            )
+                for h,point in enumerate(self.__points)
+                if point.power<-0.5
+            ],
+            senses=["E"] * self.__n_substations,
+            rhs=[0] * self.__n_substations
+        )
+
+        # Out-degree constraints (turbines)
+        self.__model.linear_constraints.add(
+            lin_expr=[cplex.SparsePair(
+                ind=[self.__ypos(h,j) for j in range(self.__n_nodes)],
+                val=[1.0] * self.__n_nodes
+            )
+                for h,point in enumerate(self.__points)
+                if point.power>=0.5
+            ],
+            senses=["E"] * self.__n_turbines,
+            rhs=[1] * self.__n_turbines
+        )
 
         # Flow balancing constraint
-        for h, point in enumerate(self.__points):
-            if point.power > 0.5:  # if it's a turbine
-                summation = ["f({0},{1})".format(h + 1, j + 1) for j in range(self.__n_nodes) if h != j] \
-                            + \
-                            ["f({0},{1})".format(j + 1, h + 1) for j in range(self.__n_nodes) if h != j]
-                coefficients = [1] * (self.__n_nodes - 1) + [-1] * (self.__n_nodes - 1)
-                self.__model.linear_constraints.add(
-                    lin_expr=[cplex.SparsePair(
-                        ind=summation,
-                        val=coefficients,
-                    )],
-                    senses=["E"],
-                    rhs=[point.power]
-                )
+        self.__model.linear_constraints.add(
+            lin_expr=[cplex.SparsePair(
+                ind=[self.__fpos(h,j) for j in range(self.__n_nodes) if h!=j] +
+                    [self.__fpos(j,h) for j in range(self.__n_nodes) if j!=h],
+                val=[1] * (self.__n_nodes - 1) + [-1] * (self.__n_nodes - 1)
+            )
+                for h,point in enumerate(self.__points)
+                if point.power >= 0.5
+            ],
+            senses=["E"] * self.__n_turbines,
+            rhs=[point.power for point in self.__points if point.power > 0.5]
+        )
 
         # Maximum number of cables linked to a substation
-        for h, point in enumerate(self.__points):
-            if point.power < -0.5:  # if it's a substation
-                constraint = ["y({0},{1})".format(i + 1, h + 1) for i in range(self.__n_nodes)]
-                coefficients = [1] * self.__n_nodes
-                if self.__slack:
-                    constraint += ["s({0})".format(h + 1)]
-                    coefficients += [-1]
-                self.__model.linear_constraints.add(
-                    lin_expr=[cplex.SparsePair(
-                        ind=constraint,
-                        val=coefficients,
-                    )],
-                    senses=["L"],
-                    rhs=[self.c]
-                )
-
-        # Avoid double cable between two points
-        for edge in edges:
-            summation = ["y({0},{1})".format(edge.source + 1, edge.destination + 1)] \
-                        + \
-                        ["x({0},{1},{2})".format(edge.source + 1, edge.destination + 1, k + 1)
-                         for k in range(self.__num_cables)]
-            coefficients = [1] + [-1] * self.__num_cables
-            self.__model.linear_constraints.add(
-                lin_expr=[cplex.SparsePair(
-                    ind=summation,
-                    val=coefficients,
-                )],
-                senses=["E"],
-                rhs=[0]
+        self.__model.linear_constraints.add(
+            lin_expr=[cplex.SparsePair(
+                ind=[self.__ypos(i,h) for i in range(self.__n_nodes)] +
+                    [self.__slackpos(h)] if self.__slack else [],
+                val=[1] * self.__n_nodes +
+                    [-1] if self.__slack else []
             )
+                for h,point in enumerate(self.__points)
+                if point.power < -0.5
+            ],
+            senses=["E"] * self.__n_substations,
+            rhs=[self.c] * self.__n_substations
+        )
+
+        # Avoid double cables between two points
+        self.__model.linear_constraints.add(
+            lin_expr=[cplex.SparsePair(
+                ind=[self.__ypos(i,j)] + [self.__xpos(i,j,k) for k in range(self.__num_cables)],
+                val=[1] + [-1] * self.__num_cables
+            )
+                for i in range(self.__n_nodes)
+                for j in range(self.__n_nodes)
+            ],
+            senses=["E"] * (self.__n_nodes**2),
+            rhs=[0] * (self.__n_nodes**2)
+        )
 
         # We want to guarantee that the cable is enough for the connection
-        for edge in edges:
-            summation = ["f({0},{1})".format(edge.source + 1, edge.destination + 1)] \
-                        + \
-                        ["x({0},{1},{2})".format(edge.source + 1, edge.destination + 1, k + 1)
-                         for k in range(self.__num_cables)]
-            coefficients = [-1] + [cable.capacity for cable in self.__cables]
-
-            self.__model.linear_constraints.add(
-                lin_expr=[cplex.SparsePair(
-                    ind=summation,
-                    val=coefficients,
-                )],
-                senses=["G"],
-                rhs=[0]
+        self.__model.linear_constraints.add(
+            lin_expr=[cplex.SparsePair(
+                ind=[self.__fpos(i,j)] + [self.__xpos(i,j,k) for k in range(self.__num_cables)],
+                val=[-1] + [cable.capacity for cable in self.__cables]
             )
+                for i in range(self.__n_nodes)
+                for j in range(self.__n_nodes)
+            ],
+            senses=["G"] * (self.__n_nodes**2),
+            rhs=[0] * (self.__n_nodes**2)
+        )
 
         # (in case) No-crossing constraints
-        if not self.cross_mode == 'no':
-            if self.cross_mode == 'lazy':
-                for i, a in enumerate(self.__points):
-                    # We want to lighten these constraints as much as possible; for this reason, j=i+1
-                    for j, b in enumerate(self.__points[i+1:], start=i+1):
-                        for k, c in enumerate(self.__points):
-                            self.__add_violating_constraint(i,j,k)
-            elif self.cross_mode == 'loop':
-                """
-                da fare...
-                """
-
-            elif self.cross_mode == 'callback':
-                raise Exception("Callbacks not ready yet!")
-            else:
-                raise ValueError("Unrecognized 'no-crossing' strategy value; given: " + self.cross_mode)
+        if self.cross_mode == 'lazy':
+            for i, a in enumerate(self.__points):
+                # We want to lighten these constraints as much as possible; for this reason, j=i+1
+                for j, b in enumerate(self.__points[i+1:], start=i+1):
+                    for k, c in enumerate(self.__points):
+                        self.__add_violating_constraint(i,j,k)
 
         # Adding the parameters to the self.__model
         self.__model.parameters.mip.strategy.rinsheur.set(self.rins)
-        self.__model.parameters.mip.polishafter.time.set(self.polishtime)
+        if self.polishtime < self.time_limit:
+            self.__model.parameters.mip.polishafter.time.set(self.polishtime)
         self.__model.parameters.timelimit.set(self.time_limit)
 
         # Writing the model to a proper location
@@ -588,19 +591,6 @@ class WindFarm:
 
         self.__name = "Wind Farm 0" + str(wf_number)
 
-    def __ypos(self, offset):
-
-        """
-        py:function:: __ypos(self, offset)
-
-        Debug-purpose defined function.
-
-        :param offset: Offset w.r.t ystart and the edge indexed by (i, j)
-
-        """
-
-        return self.__y_start + offset
-
     def __plot_high_quality(self, show=False, export=False):
 
         """
@@ -682,12 +672,12 @@ class WindFarm:
         ys = [self.__Edge(i+1,j+1)
               for i in range(self.__n_nodes)
               for j in range(self.__n_nodes)]
-        ys_values = self.__model.solution.get_values(["y({0},{1})".format(i+1,j+1)
+        ys_values = self.__model.solution.get_values([self.__ypos(i,j)
                                                       for i in range(self.__n_nodes)
                                                       for j in range(self.__n_nodes)])
         # extracts only the selected edges
         ones = [ys[i] for i,y in enumerate(ys_values) if y>0.5]
-
+        
         # extracts the violated edges:
         # recall that we're interested in the (a,b,c,d) tuple,
         # rather than the two corresponding edges.
@@ -714,10 +704,11 @@ class WindFarm:
             constraint_add = self.__model.linear_constraints.add
 
         if not (c == a or c == b):
-            current_couple = ["y({0},{1})".format(i+1, j+1), "y({0},{1})".format(j+1, i+1)]
-            crossings = ["y({0},{1})".format(k+1, l+1)
+            current_couple = [self.__ypos(i,j), self.__ypos(j,i)]
+            crossings = [self.__ypos(k,l)
                          for l,d in enumerate(self.__points[k+1:], start=k+1)
                          if self.__are_crossing(a,b,c,d)]
+
             if len(crossings) > 0:
                 summation =  crossings + current_couple
                 coefficients = [1] * len(summation)
@@ -757,6 +748,8 @@ class WindFarm:
             opt = False     # "has the optimum been reached?"
             starting_time = time.time()
             current_time = time.time()
+            for i in range(3):
+                self.__model.solve()
             while xs and not opt and current_time-starting_time < 600:
                 self.__model.solve()
 
