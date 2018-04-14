@@ -20,10 +20,10 @@ def main():
     inst.solve()
 
     # Writing our solution inside a '.sol' file
-    inst.write_solutions()
+    #inst.write_solutions()
 
     # Plotting our solution
-    inst.plot_solution(show=False, high=True, export=True)
+    #inst.plot_solution(show=False, high=True, export=True)
 
 
 if __name__ == "__main__":

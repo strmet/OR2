@@ -381,7 +381,7 @@ class WindFarm:
         model = Model(name=self.__name)
         model.set_time_limit(self.time_limit)
 
-        # Add y_i.j variables
+        # Add y(i,j) variables
         self.__y_start = model.get_statistics().number_of_variables
         for index, edge in enumerate(edges):
             model.binary_var(name="y({0},{1})".format(edge.source + 1, edge.destination + 1))
@@ -389,15 +389,15 @@ class WindFarm:
                 if self.__ypos(index) != model.get_statistics().number_of_variables - 1:
                     raise NameError('Number of variables and index do not match')
 
-                # Add f_i.j variables
-                self.__f_start = model.get_statistics().number_of_variables
+        # Add f(i,j) variables
+        self.__f_start = model.get_statistics().number_of_variables
         for index, edge in enumerate(edges):
             model.continuous_var(name="f({0},{1})".format(edge.source + 1, edge.destination + 1))
             if self.__debug_mode:
                 if self.__fpos(index) != model.get_statistics().number_of_variables - 1:
                     raise NameError('Number of variables and index do not match')
 
-        # Add x_i.j.k variables
+        # Add x(i,j,k) variables
         self.__x_start = model.get_statistics().number_of_variables
         for index, edge in enumerate(edges):
             for k in range(self.__num_cables):
@@ -407,12 +407,12 @@ class WindFarm:
                     if self.__xpos(index, k) != model.get_statistics().number_of_variables - 1:
                         raise NameError('Number of variables and index do not match')
 
-        # No self-loops constraints on y_i.i variables
+        # No self-loops constraints on y(i,i) variables
         for i in range(self.__n_nodes):
             var = model.get_var_by_name("y({0},{1})".format(i + 1, i + 1))
             model.add_constraint(var == 0)
 
-        # No self-loops constraints on f_i.i variables
+        # No self-loops constraints on f(i,i) variables
         for i in range(self.__n_nodes):
             var = model.get_var_by_name("f({0},{1})".format(i + 1, i + 1))
             model.add_constraint(var == 0)
@@ -475,7 +475,7 @@ class WindFarm:
         # Objective function
         model.minimize(
             model.sum(
-                self.__cables[k].price * Instance.get_distance(self.__points[i],
+                self.__cables[k].price * WindFarm.get_distance(self.__points[i],
                                                                self.__points[j]) * model.get_var_by_name(
                     "x({0},{1},{2})".format(i + 1, j + 1, k + 1))
                 for k in range(self.__num_cables) for i in range(self.__n_nodes) for j in range(self.__n_nodes)
@@ -977,6 +977,16 @@ class WindFarm:
         self.__cross_mode = cm
 
     @property
+    def cluster(self):
+        return self.__cluster
+
+    @cluster.setter
+    def cluster(self, c):
+        if not type(c) == bool:
+            raise TypeError("Expecting 'cluster' to be a boolean, either set True or False; given:" + str(c))
+        self.__cluster = c
+
+    @property
     def out_dir_name(self):
         return self.__out_dir_name
 
@@ -1053,16 +1063,6 @@ class WindFarm:
         if not nc >= 0:
             raise AttributeError("The number of cables must be a positive integer number; given:" + str(nc))
         self.__num_cables = nc
-
-    @property
-    def cluster(self):
-        return self.__cluster
-
-    @cluster.setter
-    def cluster(self, c):
-        if not type(c) == bool:
-            raise TypeError("Expecting 'cluster' to be a boolean, either set True or False; given:" + str(c))
-        self.__cluster = c
 
     @property
     def c(self):
