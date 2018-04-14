@@ -194,8 +194,7 @@ class WindFarm:
         self.__y_start = self.__model.variables.get_num()
         self.__model.variables.add(
             types=[self.__model.variables.type.binary]
-                  * self.__n_nodes
-                  * self.__n_nodes,
+                  * (self.__n_nodes**2),
             names=["y({0},{1})".format(i+1, j+1)
                    for i in range(self.__n_nodes)
                    for j in range(self.__n_nodes)]
@@ -205,8 +204,7 @@ class WindFarm:
         self.__f_start = self.__model.variables.get_num()
         self.__model.variables.add(
             types=[self.__model.variables.type.continuous]
-                  * self.__n_nodes
-                  * self.__n_nodes,
+                  * (self.__n_nodes**2),
             names=["f({0},{1})".format(i+1, j+1)
                    for i in range(self.__n_nodes)
                    for j in range(self.__n_nodes)]
@@ -216,8 +214,7 @@ class WindFarm:
         self.__x_start = self.__model.variables.get_num()
         self.__model.variables.add(
             types=[self.__model.variables.type.binary]
-                  * self.__n_nodes
-                  * self.__n_nodes
+                  * (self.__n_nodes**2)
                   * self.__num_cables,
             names=["x({0},{1},{2})".format(i+1, j+1, k+1)
                    for i in range(self.__n_nodes)
@@ -534,10 +531,10 @@ class WindFarm:
 
         """
         if not type(self.data_select) == int:
-            raise TypeError("Expecting an integer value representing the dataset. Given: " + str(d))
+            raise TypeError("Expecting an integer value representing the dataset. Given: " + str(self.data_select))
         if self.data_select <= 0 or self.data_select >= 31:
             raise ValueError("The dataset you're trying to reach is out of range.\n" +
-                             "Range: [1-30]. Given: " + str(d))
+                             "Range: [1-30]. Given: " + str(self.data_select))
 
         data_tostring = str(self.data_select)
         if 1 <= self.data_select <= 9:
@@ -545,6 +542,7 @@ class WindFarm:
 
         abspath = os.path.abspath(os.path.dirname(__file__)).strip()
         path_dirs = abspath.split('/')
+        path_dirs = [str(el) for el in path_dirs]
         path_dirs.remove('')
 
         self.__project_path = ''
@@ -567,14 +565,14 @@ class WindFarm:
 
         """
         if not type(self.data_select) == int:
-            raise TypeError("Expecting an integer value representing the dataset. Given: " + str(d))
+            raise TypeError("Expecting an integer value representing the dataset. Given: " + str(self.data_select))
         if self.data_select <= 0 or self.data_select >= 31:
             raise ValueError("The dataset you're trying to reach is out of range.\n" +
-                             "Range: [1-30]. Given: " + str(d))
+                             "Range: [1-30]. Given: " + str(self.data_select))
 
         # We assume that, in this context, we'll never have a WF >=10
         wf_number = 0
-        if 1 <= self.data_select <= 6:
+        if 0 <= self.data_select <= 6:
             wf_number = 1
         elif 7 <= self.data_select <= 15:
             wf_number = 2
@@ -679,7 +677,7 @@ class WindFarm:
                                                       for j in range(self.__n_nodes)])
         # extracts only the selected edges
         ones = [ys[i] for i,y in enumerate(ys_values) if y>0.5]
-        
+
         # extracts the violated edges:
         # recall that we're interested in the (a,b,c,d) tuple,
         # rather than the two corresponding edges.
