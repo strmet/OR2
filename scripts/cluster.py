@@ -2,7 +2,7 @@ import os
 import time
 import datetime
 import paramiko
-
+import getpass
 
 dataset_numbers = [30]
 interfaces = ['cplex']  # , 'docplex']
@@ -11,21 +11,25 @@ rins_options = [7, 10, 20]  # [-1, 0, 7, 100]
 
 server = "login.dei.unipd.it"
 
-username = str(input("Please, enter your username (@" + server + "): "))
-pwd = str(getpass.getpass(prompt=username+"@" + server + ": "))
 
 # Creating a new ssh instance
 ssh = paramiko.SSHClient()
 # Required, since "login.dei.unipd.it" is not a "well known ssh host"
 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-# Connect to login.dei.unipd.it
-ssh.connect(server, username=username, password=pwd)
-# Give this job to the cluster
-#ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command("ls")
+
+if getpass.getuser() == 'met':
+    pwd = str(getpass.getpass(prompt="Password: "))
+    username = "stringherm"
+    #k = paramiko.RSAKey.from_private_key_file('/home/met/.ssh/blade_cluster')
+    ssh.connect(server, username=username, password=pwd)
+else:
+    username = str(input("Please, enter your username (@" + server + "): "))
+    pwd = str(getpass.getpass(prompt=username+"@" + server + ": "))
+    # Connect to server
+    ssh.connect(server, username=username, password=pwd)
 
 sftp = ssh.open_sftp()
 
-files = ['src/__init__.py', 'src/lib/WindFarm.py', 'scripts/commands.job']
 remote_path = "/home/" + username + "/OR2/"
 
 local_path = os.path.dirname(os.path.realpath(__file__))
@@ -36,6 +40,8 @@ timestamp = datetime.datetime.fromtimestamp(current_time).strftime('%Y-%m-%d_%H:
 current_folder = "run__" + timestamp
 
 sftp.mkdir(remote_path + "out/" + current_folder)
+
+files = ['src/__init__.py', 'src/lib/WindFarm.py']
 
 with open("commands.job", "a") as fp:
     fp.write("#!/bin/bash \n")
@@ -52,6 +58,7 @@ with open("commands.job", "a") as fp:
                     instruction += " --interface " + i
                     instruction += " --C " + str(c)
                     instruction += " --rins " + str(r)
+                    instruction += " --cluster "
                     #instruction += " --polishtime " + str(p_time)
 
                     # The following three instructions are needed to construct the folder's name
@@ -76,21 +83,18 @@ for file in files:
 
     sftp.put(file_local, file_remote)
 
-sftp.close()
+sftp.put(local_path + 'scripts/commands.job', remote_path + 'out/' + current_folder + '/commands.job')
 
 
-ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command("export SGE_ROOT=/usr/share/gridengine")
-
-print(ssh_stdout.read())
-print(ssh_stderr.read())
-
-
-print("qsub {0}scripts/commands.job -cwd".format(remote_path))
 # Give this job to the cluster
-ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command("qsub {0}scripts/commands.job -cwd".format(remote_path))
-
-
+ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command("export SGE_ROOT=/usr/share/gridengine \n" +
+                                                     "cd {0}out/{1} \n".format(remote_path, current_folder) +
+                                                     "qsub -cwd commands.job"
+                                                    )
 print(ssh_stdout.read())
 print(ssh_stderr.read())
+
 os.remove("commands.job")
+
+sftp.close()
 ssh.close()
