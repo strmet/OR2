@@ -1,20 +1,22 @@
 """
 Everything related to the instance of our problem is written in here.
 """
+try:
+    from docplex.mp.model import Model
+    import plotly.offline as py
+    from plotly.graph_objs import *
+    import networkx as nx
+    import matplotlib.pyplot as plt
+except:
+    pass
 
-from collections import namedtuple
-from docplex.mp.model import Model
 import os.path
 import warnings
 import time
 import argparse
 import cplex
 import math
-import plotly.offline as py
-from plotly.graph_objs import *
-import networkx as nx
-import matplotlib.pyplot as plt
-
+from collections import namedtuple
 
 class ValueWarning(UserWarning):
     pass
@@ -319,7 +321,7 @@ class WindFarm:
                 for h,point in enumerate(self.__points)
                 if point.power < -0.5
             ],
-            senses=["E"] * self.__n_substations,
+            senses=["L"] * self.__n_substations,
             rhs=[self.c] * self.__n_substations
         )
 
