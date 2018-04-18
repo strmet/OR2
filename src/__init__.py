@@ -5,14 +5,20 @@ from lib.WindFarm import *
 def main():
 
     # Initializes our instance. The class "WindFarm" has everything we need.
+    """
+    The following will:
+        - build the WindFarm object
+        - call the command line parser
+        - set its own parameters
+        - build the input files
+        - build the output folders
+    """
     inst = WindFarm(dataset_selection=1)
-
-    # Correctly parses the command line
-    inst.parse_command_line()
 
     # Reads the turbines and the cables file
     inst.read_input()
 
+    # Builds the model with such
     inst.build_model()
 
     # Starts the CPLEX/DOCPLEX solver

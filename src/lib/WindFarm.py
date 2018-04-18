@@ -56,6 +56,8 @@ class WindFarm:
 
         # Dataset selection and consequent input files building, and output parameters
         self.data_select = dataset_selection
+        # Building the input/output files, while parsing the command line.
+        self.__parse_command_line()
         self.__build_input_files()
         self.__build_name()
         self.out_dir_name = 'test'
@@ -510,7 +512,7 @@ class WindFarm:
                for j in range(self.__n_nodes)
                for k in range(self.__num_cables)
                if self.__model.solution.get_values(self.__xpos(i,j,k))>0.5]
-        
+
         return sol
 
     def __build_input_files(self):
@@ -777,7 +779,7 @@ class WindFarm:
         self.__model.solution.write(self.__project_path + "/out/" + self.out_dir_name + "/mysol.sol")
         return self.__get_solution()
 
-    def parse_command_line(self):
+    def __parse_command_line(self):
 
         """
         py:function:: parse_command_line(self)
@@ -843,10 +845,6 @@ class WindFarm:
 
         if args.crossings:
             self.cross_mode = args.crossings
-
-        # Since the parameters have been updated, We must re-build the input files, names, etc.
-        self.__build_input_files()
-        self.__build_name()
 
     def read_input(self):
         """
