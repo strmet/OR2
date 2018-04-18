@@ -16,7 +16,7 @@ import getpass
 dataset_numbers = [30]
 interfaces = ['cplex']  # , 'docplex']
 Cs = [8]  # [str(i) for i in range (7,10)]
-rins_options = [-1, 0, 10, 100]
+rins_options = [7]
 
 server = "login.dei.unipd.it"
 
@@ -28,6 +28,9 @@ ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 if getpass.getuser() == 'met': # Avoid asking username
     pwd = str(getpass.getpass(prompt="Password: "))
     username = "stringherm"
+elif getpass.getuser() == 'venir':
+    pwd = str(getpass.getpass(prompt="Password: "))
+    username = "venirluca"
 else:
     username = str(input("Please, enter your username (@" + server + "): "))
     pwd = str(getpass.getpass(prompt=username+"@" + server + ": "))
@@ -36,7 +39,7 @@ else:
 ssh.connect(server, username=username, password=pwd)
 
 # Open secure file transfer protocol instance
-sftp = ssh.open_sftp()
+sftp = ssh.open_sftp()  # per trasferire i file
 
 # Remote project path
 remote_path = "/home/" + username + "/OR2/"
@@ -48,7 +51,7 @@ local_path = os.path.dirname(os.getcwd()) + "/"
 current_time = time.time()
 timestamp = datetime.datetime.fromtimestamp(current_time).strftime('%Y-%m-%d_%H:%M:%S')
 current_folder = "run__" + timestamp
-print(os.path.isdir(remote_path + "out"))
+
 try:
     sftp.mkdir(remote_path + "out/")
 except IOError:
@@ -106,6 +109,10 @@ os.remove("commands.job")
 ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command("export SGE_ROOT=/usr/share/gridengine \n" +
                                                      "cd {0}out/{1} \n".format(remote_path, current_folder) +
                                                      "qsub -cwd commands.job")
+# dev'essere "tutto assieme"
+#  o si dimentica dell'export
+
+# qsub -cwd == "current working directory". DEVE ESSERE MESSO PRIMA!!!
 
 # Print output and errors
 print(ssh_stdout.read().decode('utf-8'))

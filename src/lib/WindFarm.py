@@ -63,6 +63,7 @@ class WindFarm:
         # Parameters, commenting out whatever we don't use
         # self.model_type (???)
         # self.num_threads
+        self.__project_path = ''
         self.cluster = False
         self.time_limit = 60
         self.rins = 7
@@ -80,14 +81,13 @@ class WindFarm:
         # Dataset selection and consequent input files building, and output parameters
         self.data_select = dataset_selection
         # Building the input/output files, while parsing the command line.
-        self.__parse_command_line()
         self.__build_input_files()
         self.__build_name()
         self.out_dir_name = 'test'
 
     # Private methods, internal to our class:
 
-    def __parse_command_line(self):
+    def parse_command_line(self):
 
         """
         py:function:: parse_command_line(self)
@@ -153,6 +153,9 @@ class WindFarm:
 
         if args.crossings:
             self.cross_mode = args.crossings
+
+        self.__build_input_files()
+        self.__build_name()
 
     def __read_turbines_file(self):
 
@@ -648,6 +651,7 @@ class WindFarm:
             data_tostring = "0" + data_tostring
 
         abspath = os.path.abspath(os.path.dirname(__file__)).strip()
+
         path_dirs = abspath.split('/')
         path_dirs = [str(el) for el in path_dirs]
         path_dirs.remove('')
@@ -776,7 +780,7 @@ class WindFarm:
         """
 
         # Gets the values from the model
-        ys = [self.__Edge(i+1,j+1)
+        ys = [(i,j)
               for i in range(self.__n_nodes)
               for j in range(self.__n_nodes)]
         ys_values = self.__model.solution.get_values([self.__ypos(i,j)
@@ -789,13 +793,13 @@ class WindFarm:
         # recall that we're interested in the (a,b,c,d) tuple,
         # rather than the two corresponding edges.
 
-        violated = [(v.source, v.destination, u.source, u.destination)
-                    for i,v in enumerate(ones)
-                    for u in ones[i+1:]
-                    if self.__are_crossing(self.__points[v.source-1],
-                                           self.__points[v.destination-1],
-                                           self.__points[u.source-1],
-                                           self.__points[u.destination-1])]
+        violated = [(i1,j1, i2, j2)
+                    for h, (i1,j1) in enumerate(ones)
+                    for (i2,j2) in ones[h+1:]
+                    if self.__are_crossing(self.__points[i1],
+                                           self.__points[j1],
+                                           self.__points[i2],
+                                           self.__points[j2])]
 
         return violated
 
@@ -847,6 +851,7 @@ class WindFarm:
         """
         Simply solves the problem by invoking the .solve() method within the model selected.
         """
+
         if self.cross_mode == 'lazy' or self.cross_mode == 'no':
             # This simply means that CPLEX has everything he needs to have inside his enviroment
             self.__model.solve()
@@ -1023,21 +1028,6 @@ class WindFarm:
         self.__cluster = c
 
     @property
-    def out_dir_name(self):
-        return self.__out_dir_name
-
-    @out_dir_name.setter
-    def out_dir_name(self, d):
-        if not type(d) == str:
-            warnings.warn("Out path not given as string. Trying a conversion.", ValueWarning)
-            d = str(d)
-        if not os.path.exists(self.__project_path + '/out/' + d):
-            os.makedirs(self.__project_path + '/out/' + d)
-        if not os.path.exists(self.__project_path + '/out/' + d + '/img'):
-            os.makedirs(self.__project_path + '/out/' + d + '/img')
-        self.__out_dir_name = d
-
-    @property
     def data_select(self):
         return self.__data_select
 
@@ -1154,3 +1144,18 @@ class WindFarm:
         if not os.path.isfile(fname):
             raise FileNotFoundError("Can't find the '.cbl' file; filename given: " + fname)
         self.__cbl_file = fname
+
+    @property
+    def out_dir_name(self):
+        return self.__out_dir_name
+
+    @out_dir_name.setter
+    def out_dir_name(self, d):
+        if not type(d) == str:
+            warnings.warn("Out path not given as string. Trying a conversion.", ValueWarning)
+            d = str(d)
+        if not os.path.exists(self.__project_path + '/out/' + d):
+            os.makedirs(self.__project_path + '/out/' + d)
+        if not os.path.exists(self.__project_path + '/out/' + d + '/img'):
+            os.makedirs(self.__project_path + '/out/' + d + '/img')
+        self.__out_dir_name = d

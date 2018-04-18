@@ -13,9 +13,10 @@ def main():
         - build the input files
         - build the output folders
     """
-    inst = WindFarm(dataset_selection=1)
 
+    inst = WindFarm(dataset_selection=1)
     # Reads the turbines and the cables file
+    inst.parse_command_line()
     inst.read_input()
 
     # Builds the model with such
