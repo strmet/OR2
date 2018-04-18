@@ -500,27 +500,17 @@ class WindFarm:
         :return: List of CableSol named tuples
         """
 
-        sol = []
-        edges = [self.__Edge(i, j) for i in range(self.__n_nodes) for j in range(self.__n_nodes)]
-        if self.__interface == 'cplex':
-            for edge in edges:
-                for k in range(self.__num_cables):
-                    val = self.__model.solution.get_values(
-                        "x({0},{1},{2})".format(edge.source + 1, edge.destination + 1, k + 1))
-                    if val > 0.5:
-                        sol.append(self.__CableSol(edge.source + 1, edge.destination + 1, k + 1))
-        elif self.__interface == 'docplex':
-            for edge in edges:
-                for k in range(self.__num_cables):
-                    val = self.__model.solution.get_value(
-                        "x({0},{1},{2})".format(edge.source + 1, edge.destination + 1, k + 1))
-                    if val > 0.5:
-                        sol.append(self.__CableSol(edge.source + 1, edge.destination + 1, k + 1))
-        else:
+        if not (self.__interface=='cplex' or self.__interface=='docplex'):
             raise ValueError("The given interface isn't a valid option. " +
                              "Either 'docplex' or 'cplex' are valid options; given: " +
                              str(self.__interface))
 
+        sol = [self.__CableSol(i+1,j+1,k+1)
+               for i in range(self.__n_nodes)
+               for j in range(self.__n_nodes)
+               for k in range(self.__num_cables)
+               if self.__model.solution.get_values(self.__xpos(i,j,k))>0.5]
+        
         return sol
 
     def __build_input_files(self):
