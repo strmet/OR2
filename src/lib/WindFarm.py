@@ -44,7 +44,6 @@ class WindFarm:
         self.__name = ''
         self.__y_start = 0
         self.__f_start = 0
-        self.__f_start = 0
         self.__x_start = 0
         self.__slack_start = 0
         self.__points = []
@@ -384,7 +383,7 @@ class WindFarm:
         """
         Build the model using docplex API
 
-        :return: The model filled with variables and constraints
+        :return: None
         """
         if not self.__interface == 'docplex':
             raise NameError("For some reason the docplex model has been called when " +
@@ -617,7 +616,7 @@ class WindFarm:
                              "Range: [1-31]. Given: " + str(self.data_select))
 
         data_tostring = str(self.data_select)
-        if 0 <= self.data_select <= 9:
+        if 1 <= self.data_select <= 9:
             data_tostring = "0" + data_tostring
 
         abspath = os.path.abspath(os.path.dirname(__file__)).strip()
@@ -751,8 +750,10 @@ class WindFarm:
 
     def __add_violating_constraint(self, crossings):
         """
+        Adds the violating constraint by index.
+        Crossings contains the index of every edge variable to be added.
 
-        :param crossings:
+        :param crossings: a list [idx_1, ..., idx_n] where idx_i are the indexes of the conflicting edges
         :return: None
         """
 
