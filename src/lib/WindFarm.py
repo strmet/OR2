@@ -18,6 +18,7 @@ import cplex
 import math
 from collections import namedtuple
 
+
 class ValueWarning(UserWarning):
     pass
 
@@ -39,28 +40,34 @@ class WindFarm:
         # The model itself
         self.__model = None
 
-        # Model variables
+        # Model variables/parameters
         self.__name = ''
         self.__y_start = 0
         self.__f_start = 0
+        self.__f_start = 0
         self.__x_start = 0
         self.__slack_start = 0
-
-        # Input data variables
-        self.__n_nodes = 0
-        self.__num_cables = 0
-        self.__n_substations = 0
         self.__points = []
         self.__cables = []
         self.c = 10
 
-        # Named tuples, describing input data
-        self.__Edge = namedtuple("Edge", ["source", "destination"])
-        self.__Point = namedtuple("Point", ["id", "x", "y", "power"])
-        self.__Cable = namedtuple("Cable", ["capacity", "price", "max_usage"])
-        self.__CableSol = namedtuple("CableSol", ["source", "destination", "capacity"])
+        # Data counters
+        self.__n_nodes = 0
+        self.__n_cables = 0
+        self.__n_turbines = 0
+        self.__n_substations = 0
+        self.__best_sol = []
+        self.__best_incumbent = 10e12
 
-        # Parameters, commenting out whatever we don't use
+        # "Named tuples", very useful for describing input data
+        # without creating new classes
+        self.__EdgeSol = namedtuple("EdgeSol", ["idx", "s", "d"])
+        self.__CableSol = namedtuple("CableSol", ["idx", "s", "d", "capacity"])
+        self.__FluxSol = namedtuple("FluxSol", ["idx", "s", "d"])
+        self.__Point = namedtuple("Point", ["x", "y", "power"])
+        self.__Cable = namedtuple("Cable", ["capacity", "price", "max_usage"])
+
+        # Operating parameters, commenting out whatever we don't use
         # self.model_type (???)
         # self.num_threads
         self.__project_path = ''
@@ -87,6 +94,685 @@ class WindFarm:
 
     # Private methods, internal to our class:
 
+    def __read_turbines_file(self):
+
+        """
+        py:function:: read_turbines_file(self)
+
+        Read the turbines file
+
+        """
+
+        points = []
+
+        # the following opens and closes the file within the block
+        i=1
+        with open(self.turb_file, "r") as fp:
+            for line in fp:
+                words = list(map(int, line.split()))
+                points.append(self.__Point(words[0], words[1], words[2]))
+                if int(words[2]) < 0.5:
+                    self.__n_substations += 1
+                i+=1
+
+        self.__n_nodes = len(points)
+        self.__n_turbines = self.__n_nodes - self.__n_substations
+        self.__points = points
+
+    def __read_cables_file(self):
+
+        """
+        py:function:: read_cables_file(self)
+
+        Read the cables file
+
+        """
+
+        cables = []
+
+        # the following opens and closes the file within the block
+        with open(self.cbl_file, "r") as fp:
+            for line in fp:
+                # if len(cables) > 3: break
+                words = line.split()
+                cables.append(self.__Cable(int(words[0]), float(words[1]), int(words[2])))
+
+        self.__n_cables = len(cables)
+        self.__cables = cables
+
+    def __fpos(self, i_off, j_off):
+        """
+
+        :param i_off:
+        :param j_off:
+        :return:
+        """
+
+        return self.__f_start + i_off*self.__n_nodes + j_off
+
+    def __xpos(self, i_off, j_off, k_off):
+        """
+        .. description missing ..
+        :param i_off:
+        :param j_off:
+        :param k_off:
+        :return:
+        """
+
+        return self.__x_start + i_off*self.__n_nodes*self.__n_cables + j_off*self.__n_cables + k_off
+
+    def __ypos(self, i_off, j_off):
+        """
+
+        :param i_off:
+        :param j_off:
+        :return:
+        """
+
+        return self.__y_start + i_off*self.__n_nodes + j_off
+
+    def __slackpos(self, slack_off):
+
+        """
+        py:function:: __slackpos(offset, k, inst)
+
+        .. description missing ..
+
+        :param slack_off: Offset w.r.t slackstart and the substation indexed by h
+
+        """
+        return self.__slack_start + slack_off
+
+    def __build_model_cplex(self):
+
+        """
+        Build the model using classical cplex API
+
+        :return: The model filled with variables and constraints
+        """
+        if not self.__interface == 'cplex':
+            raise NameError("For some reason the classical model has been called when " +
+                            "the 'interface' variable has been set to: " + self.__interface)
+        self.__model = cplex.Cplex()
+
+        self.__model.set_problem_name(self.__name)
+        self.__model.objective.set_sense(self.__model.objective.sense.minimize)
+
+        # Add y(i,j) variables
+        self.__y_start = self.__model.variables.get_num()
+        self.__model.variables.add(
+            types=[self.__model.variables.type.binary]
+                  * (self.__n_nodes**2),
+            names=["y({0},{1})".format(i+1, j+1)
+                   for i in range(self.__n_nodes)
+                   for j in range(self.__n_nodes)]
+        )
+
+        # Add f(i,j) variables
+        self.__f_start = self.__model.variables.get_num()
+        self.__model.variables.add(
+            types=[self.__model.variables.type.continuous]
+                  * (self.__n_nodes**2),
+            names=["f({0},{1})".format(i+1, j+1)
+                   for i in range(self.__n_nodes)
+                   for j in range(self.__n_nodes)]
+        )
+
+        # Add x(i,j,k) variables
+        self.__x_start = self.__model.variables.get_num()
+        self.__model.variables.add(
+            types=[self.__model.variables.type.binary]
+                  * (self.__n_nodes**2)
+                  * self.__n_cables,
+            names=["x({0},{1},{2})".format(i+1, j+1, k+1)
+                   for i in range(self.__n_nodes)
+                   for j in range(self.__n_nodes)
+                   for k in range(self.__n_cables)],
+            obj=[cable.price * WindFarm.get_distance(v,u)
+                 for v in self.__points
+                 for u in self.__points
+                 for cable in self.__cables]
+        )
+
+        if self.__slack:
+            # Add s(h) (slack) variables
+            self.__slack_start = self.__model.variables.get_num()
+            self.__model.variables.add(
+                types=[self.__model.variables.type.continuous]
+                      * self.__n_substations,
+                names=["s({0})".format(h+1)
+                       for h, point in enumerate(self.__points)
+                       if point.power < -0.5],
+                obj=[1e9] * self.__n_substations
+            )
+        else:
+            # No variables should be added, then.
+            self.__slack_start = -1
+
+        # No self-loop constraints on y(i,i) = 0 \forall i
+        self.__model.variables.set_upper_bounds([
+            (self.__ypos(i,i), 0)
+            for i in range(self.__n_nodes)
+        ])
+
+        # No self-loop constraints on f(i,i) = 0 \forall i
+        self.__model.variables.set_upper_bounds([
+            (self.__fpos(i,i), 0)
+            for i in range(self.__n_nodes)
+        ])
+
+        # No self-loop constraints on x(i,i,k) = 0 \forall i,k
+        self.__model.variables.set_upper_bounds([
+            (self.__xpos(i,i,k), 0)
+            for i in range(self.__n_nodes)
+            for k in range(self.__n_cables)
+        ])
+
+        # Energy flow must be positive
+        self.__model.variables.set_lower_bounds([
+            (self.__fpos(i,j), 0)
+            for i in range(self.__n_nodes)
+            for j in range(self.__n_nodes)
+        ])
+
+        # Out-degree constraints (substations)
+        self.__model.linear_constraints.add(
+            lin_expr=[cplex.SparsePair(
+                ind=[self.__ypos(h,j) for j in range(self.__n_nodes)],
+                val=[1.0] * self.__n_nodes
+            )
+                for h,point in enumerate(self.__points)
+                if point.power<-0.5
+            ],
+            senses=["E"] * self.__n_substations,
+            rhs=[0] * self.__n_substations
+        )
+
+        # Out-degree constraints (turbines)
+        self.__model.linear_constraints.add(
+            lin_expr=[cplex.SparsePair(
+                ind=[self.__ypos(h,j) for j in range(self.__n_nodes)],
+                val=[1.0] * self.__n_nodes
+            )
+                for h,point in enumerate(self.__points)
+                if point.power>=0.5
+            ],
+            senses=["E"] * self.__n_turbines,
+            rhs=[1] * self.__n_turbines
+        )
+
+        # Flow balancing constraint
+        self.__model.linear_constraints.add(
+            lin_expr=[cplex.SparsePair(
+                ind=[self.__fpos(h,j) for j in range(self.__n_nodes) if h!=j] +
+                    [self.__fpos(j,h) for j in range(self.__n_nodes) if j!=h],
+                val=[1] * (self.__n_nodes - 1) + [-1] * (self.__n_nodes - 1)
+            )
+                for h,point in enumerate(self.__points)
+                if point.power >= 0.5
+            ],
+            senses=["E"] * self.__n_turbines,
+            rhs=[point.power for point in self.__points if point.power > 0.5]
+        )
+
+        # Maximum number of cables linked to a substation
+        self.__model.linear_constraints.add(
+            lin_expr=[cplex.SparsePair(
+                ind=[self.__ypos(i,h) for i in range(self.__n_nodes)] +
+                    [self.__slackpos(h)] if self.__slack else [],
+                val=[1] * self.__n_nodes +
+                    [-1] if self.__slack else []
+            )
+                for h,point in enumerate(self.__points)
+                if point.power < -0.5
+            ],
+            senses=["L"] * self.__n_substations,
+            rhs=[self.c] * self.__n_substations
+        )
+
+        # Avoid double cables between two points
+        self.__model.linear_constraints.add(
+            lin_expr=[cplex.SparsePair(
+                ind=[self.__ypos(i,j)] + [self.__xpos(i,j,k) for k in range(self.__n_cables)],
+                val=[1] + [-1] * self.__n_cables
+            )
+                for i in range(self.__n_nodes)
+                for j in range(self.__n_nodes)
+            ],
+            senses=["E"] * (self.__n_nodes**2),
+            rhs=[0] * (self.__n_nodes**2)
+        )
+
+        # We want to guarantee that the cable is enough for the connection
+        self.__model.linear_constraints.add(
+            lin_expr=[cplex.SparsePair(
+                ind=[self.__fpos(i,j)] + [self.__xpos(i,j,k) for k in range(self.__n_cables)],
+                val=[-1] + [cable.capacity for cable in self.__cables]
+            )
+                for i in range(self.__n_nodes)
+                for j in range(self.__n_nodes)
+            ],
+            senses=["G"] * (self.__n_nodes**2),
+            rhs=[0] * (self.__n_nodes**2)
+        )
+
+        # (in case) No-crossing lazy constraints
+        if self.cross_mode == 'lazy':
+            for i, a in enumerate(self.__points):
+                # We want to lighten these constraints as much as possible; for this reason, j=i+1
+                for j, b in enumerate(self.__points[i+1:], start=i+1):
+                    current_couple = [self.__ypos(i,j), self.__ypos(j,i)]
+                    for k, c in enumerate(self.__points):
+                        if not (c == a or c == b):
+                            violating_cds = [self.__ypos(k,l)
+                                             for l,d in enumerate(self.__points[k+1:], start=k+1)
+                                             if WindFarm.are_crossing(a,b,c,d)]
+                            if len(violating_cds) > 0:
+                                self.__add_violating_constraint(current_couple + violating_cds)
+
+        # Adding the parameters to the model
+        self.__model.parameters.mip.strategy.rinsheur.set(self.rins)
+        if self.polishtime < self.time_limit:
+            self.__model.parameters.mip.polishafter.time.set(self.polishtime)
+        self.__model.parameters.timelimit.set(self.time_limit)
+
+        # Writing the model to a proper location
+        self.__model.write(self.__project_path + "/out/" + self.out_dir_name + "/lpmodel.lp")
+
+    def __build_model_docplex(self):
+
+        """
+        Build the model using docplex API
+
+        :return: The model filled with variables and constraints
+        """
+        if not self.__interface == 'docplex':
+            raise NameError("For some reason the docplex model has been called when " +
+                            "the 'interface' variable has been set to: " + self.__interface)
+
+        self.__model = Model(name=self.__name)
+        self.__model.set_time_limit(self.time_limit)
+
+        # Add y(i,j) variables
+        self.__y_start = self.__model.get_statistics().number_of_variables
+        self.__model.binary_var_list(
+            ((i+1,j+1)
+             for i in range(self.__n_nodes)
+             for j in range(self.__n_nodes)),
+            name="y%s"
+        )
+
+        # Add f(i,j) variables
+        self.__f_start = self.__model.get_statistics().number_of_variables
+        self.__model.continuous_var_list(
+            ((i+1,j+1)
+             for i in range(self.__n_nodes)
+             for j in range(self.__n_nodes)),
+            name="f%s"
+        )
+
+        # Add x(i,j,k) variables
+        self.__x_start = self.__model.get_statistics().number_of_variables
+        self.__model.binary_var_list(
+            ((i+1,j+1,k+1)
+             for i in range(self.__n_nodes)
+             for j in range(self.__n_nodes)
+             for k in range(self.__n_cables)),
+            name="x%s"
+        )
+
+        # Add s(h) slack variables
+        if self.__slack:
+            self.__slack_start = self.__model.get_statistics().number_of_variables
+            self.__model.continuous_var_list(
+                (h+1
+                 for h, point in enumerate(self.__points)
+                 if point.power < -0.5),
+                name="s(%s)"  # The parenthesis are necessary here, since this set of variables is 1-dimensional
+            )
+        else:
+            # No slack variables, then.
+            self.__slack_start = -1
+
+        # No self-loops constraints on y(i,i) variables (\forall i)
+        self.__model.add_constraints(
+            self.__model.get_var_by_index(self.__ypos(i,i)) == 0
+            for i in range(self.__n_nodes)
+        )
+
+        # No self-loops constraints on f(i,i) variables (\forall i)
+        self.__model.add_constraints(
+            self.__model.get_var_by_index(self.__fpos(i,i)) == 0
+            for i in range(self.__n_nodes)
+        )
+
+        # No self-loops constraints on x(i,i, k) variables (\forall i, \forall k))
+        self.__model.add_constraints(
+            self.__model.get_var_by_index(self.__xpos(i,i,k)) == 0
+            for i in range(self.__n_nodes)
+            for k in range(self.__n_cables)
+        )
+
+        # Out-degree constraints (substations)
+        self.__model.add_constraints(
+            self.__model.sum(
+                self.__model.get_var_by_index(self.__ypos(h,j))
+                for j in range(self.__n_nodes)
+            )
+            ==
+            0
+            for h, point in enumerate(self.__points)
+            if point.power < -0.5
+        )
+
+        # Out-degree constraints (turbines)
+        self.__model.add_constraints(
+            self.__model.sum(
+                self.__model.get_var_by_index(self.__ypos(h,j))
+                for j in range(self.__n_nodes)
+            )
+            ==
+            1
+            for h, point in enumerate(self.__points)
+            if point.power > 0.5
+        )
+
+        # Maximum number of cables linked to a substation
+        self.__model.add_constraints(
+            self.__model.sum(
+                self.__model.get_var_by_index(self.__ypos(i,h))
+                for i in range(self.__n_nodes)
+            )
+            <=
+            self.c + self.__model.get_var_by_index(self.__slackpos(h))
+            for h,point in enumerate(self.__points)
+            if point.power < -0.5
+        )
+
+        # Flow balancing constraint
+        self.__model.add_constraints(
+            self.__model.sum(
+                self.__model.get_var_by_index(self.__fpos(h,j))
+                for j in range(self.__n_nodes)
+            )
+            ==
+            self.__model.sum(
+                self.__model.get_var_by_index(self.__fpos(j,h))
+                for j in range(self.__n_nodes)
+            ) + self.__points[h].power
+            for h,point in enumerate(self.__points)
+            if point.power > 0.5
+        )
+
+        # Avoid double cable between two points
+        self.__model.add_constraints(
+            self.__model.get_var_by_index(self.__ypos(i,j))
+            ==
+            self.__model.sum(
+                self.__model.get_var_by_index(self.__xpos(i,j,k))
+                for k in range(self.__n_cables)
+            )
+            for i in range(self.__n_nodes)
+            for j in range(self.__n_nodes)
+        )
+
+        # Guarantee that the cable is enough for the connection
+        self.__model.add_constraints(
+            self.__model.sum(
+                cable.capacity * self.__model.get_var_by_index(self.__xpos(i,j,k))
+                for k,cable in enumerate(self.__cables)
+            )
+            >=
+            self.__model.get_var_by_index(self.__fpos(i,j))
+            for i in range(self.__n_nodes)
+            for j in range(self.__n_nodes)
+        )
+
+        # No-crossing lazy constraints don't work in docplex.
+        if self.cross_mode == 'lazy':
+            raise ValueError("No lazy constraints admitted in docplex.")
+
+        # Objective function
+        self.__model.minimize(
+            self.__model.sum(
+                cable.price * WindFarm.get_distance(u,v) * self.__model.get_var_by_index(self.__xpos(i,j,k))
+                for k,cable in enumerate(self.__cables)
+                for i,u in enumerate(self.__points)
+                for j,v in enumerate(self.__points)
+            )
+        )
+
+        # Adding the parameters to the model
+        self.__model.parameters.mip.strategy.rinsheur.set(self.rins)
+        if self.polishtime < self.time_limit:
+            self.__model.parameters.mip.polishafter.time.set(self.polishtime)
+        self.__model.parameters.timelimit.set(self.time_limit)
+
+        # Writing the model to a proper location
+        self.__model.export_as_lp(path = self.__project_path+"/out/"+self.out_dir_name+"/lpmodel.lp")
+
+    def __get_solution(self, var='x'):
+        """
+        Reads the solution from CPLEX or DOCPLEX and stores it in three appropriate lists.
+        (recall that a selected solution is a variable set to '1').
+
+            - If var is set to 'x', a list of "CableSol" named tuples will be returned.
+            - If var is set to 'y', a list of "EdgeSol" named tuples will be returned.
+            - If var is set to 'f', a list of "FluxSol" named tuples will be returned.
+
+        WARNING:
+            If you call this function BEFORE CPLEX or DOCPLEX find an incumbent,
+            or just after adding a constraint to the model (see loop method),
+            an error will be raised.
+
+        :param var: Default = 'x'. May be set to 'x', 'y' or 'f'.
+        :return: The corresponding solution list.
+        """
+
+        if self.__interface == 'cplex':
+            get_value = self.__model.solution.get_values
+            xpos = self.__xpos
+            ypos = self.__ypos
+            fpos = self.__fpos
+        elif self.__interface == 'docplex':
+            get_value = self.__model.solution.get_value
+            xpos = lambda i,j,k:  self.__model.get_var_by_index(self.__xpos(i,j,k))
+            ypos = lambda i,j:  self.__model.get_var_by_index(self.__ypos(i,j))
+            fpos = lambda i,j:  self.__model.get_var_by_index(self.__fpos(i,j))
+        else:
+            raise ValueError("Unknown interface. I've got: " + str(self.__interface))
+
+        if var=='x':
+            sol = [self.__CableSol(self.__xpos(i,j,k),i+1,j+1,k+1)
+                   for i in range(self.__n_nodes)
+                   for j in range(self.__n_nodes)
+                   for k in range(self.__n_cables)
+                   if get_value(xpos(i,j,k)) > 0.5]
+        elif var=='y':
+            sol = [self.__EdgeSol(self.__ypos(i,j), i, j)
+                   for i in range(self.__n_nodes)
+                   for j in range(self.__n_nodes)
+                   if get_value(ypos(i,j)) > 0.5]
+        elif var=='f':
+            sol = [self.__FluxSol(self.__fpos(i,j), i, j)
+                   for i in range(self.__n_nodes)
+                   for j in range(self.__n_nodes)
+                   if get_value(fpos(i,j)) > 0.5]
+        else:
+            raise ValueError("Invalid solution request. 'x', 'y' or 'f' are possible values, given "+str(var))
+
+        return sol
+
+    def __build_input_files(self):
+        """
+        py:function:: __build_input_files(self)
+
+        Sets the input file correctly, based on the dataset selection
+
+        """
+        if not type(self.data_select) == int:
+            raise TypeError("Expecting an integer value representing the dataset. Given: " + str(self.data_select))
+        if self.data_select <= 0 or self.data_select >= 32:
+            raise ValueError("The dataset you're trying to reach is out of range.\n" +
+                             "Range: [1-31]. Given: " + str(self.data_select))
+
+        data_tostring = str(self.data_select)
+        if 0 <= self.data_select <= 9:
+            data_tostring = "0" + data_tostring
+
+        abspath = os.path.abspath(os.path.dirname(__file__)).strip()
+
+        path_dirs = abspath.split('/')
+        path_dirs = [str(el) for el in path_dirs]
+        path_dirs.remove('')
+
+        self.__project_path = ''
+        or2_found = False
+        i = 0
+        while not or2_found:
+            if path_dirs[i] == 'OR2':
+                or2_found = True
+            self.__project_path += '/' + path_dirs[i]
+            i += 1
+
+        self.turb_file = self.__project_path + "/data/data_" + data_tostring + ".turb"
+        self.cbl_file = self.__project_path + "/data/data_" + data_tostring + ".cbl"
+
+    def __build_name(self):
+        """
+        py:function:: __build_name(self)
+
+        Sets the name of the wind farm correctly, based on the dataset selection
+
+        """
+        if not type(self.data_select) == int:
+            raise TypeError("Expecting an integer value representing the dataset. Given: " + str(self.data_select))
+        if self.data_select <= 0 or self.data_select >= 32:
+            raise ValueError("The dataset you're trying to reach is out of range.\n" +
+                             "Range: [1-31]. Given: " + str(self.data_select))
+
+        # We assume that, in this context, we'll never have a WF >=10
+        wf_number = 0
+        if 0 <= self.data_select <= 6:
+            wf_number = 1
+        elif 7 <= self.data_select <= 15:
+            wf_number = 2
+        elif 16 <= self.data_select <= 19:
+            wf_number = 3
+        elif 20 <= self.data_select <= 21:
+            wf_number = 4
+        elif 26 <= self.data_select <= 29:
+            wf_number = 5
+        elif 30 <= self.data_select <= 31:
+            wf_number = 6
+
+        if wf_number == 0:
+            raise ValueError("Something went wrong with the Wind Farm number;\n" +
+                             "check the dataset selection parameter: " + str(self.data_select))
+
+        self.__name = "Wind Farm 0" + str(wf_number)
+
+    def __plot_high_quality(self, show=False, export=False):
+
+        """
+        py:function:: plot_high_quality(inst, edges)
+
+        Plot the solution using standard libraries
+
+        :param export: whatever this means
+
+        """
+        edges = self.__get_solution()
+        G = nx.DiGraph()
+
+        mapping = {}
+
+        for i in range(self.__n_nodes):
+            if self.__points[i].power < -0.5:
+                mapping[i] = 'S{0}'.format(i + 1)
+            else:
+                mapping[i] = 'T{0}'.format(i + 1)
+
+        for index, node in enumerate(self.__points):
+            G.add_node(index)
+
+        for edge in edges:
+            G.add_edge(edge.s - 1, edge.d - 1)
+
+        pos = {i: (point.x, point.y) for i, point in enumerate(self.__points)}
+
+        # Avoid re scaling of axes
+        plt.gca().set_aspect('equal', adjustable='box')
+
+        # draw graph
+        nx.draw(G, pos, with_labels=True, node_size=1300, alpha=0.3, arrows=True, labels=mapping, node_color='g',
+                linewidth=10)
+
+        if export:
+            plt.savefig(self.__project_path + '/out/' + self.out_dir_name + '/img/foo.svg')
+
+        # show graph
+        if show:
+            plt.show()
+
+    def __get_violated_edges(self):
+        """
+            When called, this function returns a list of violations, which are a list of y_pos indexes,
+            ready to be added to CPLEX or DOCPLEX.
+        :return:    [list_1, ..., list2_m], where each list_i is a list:
+                    [idx_1, ..., idx_m], where idx_i = y_pos(some_turb, some_other_turb)
+        """
+
+        selected_edges = self.__get_solution(var='y')
+
+        constraints_to_be_added = []
+        for e1 in selected_edges:
+            for k in range(self.__n_nodes):
+                # Get only the selected, out-going edges from the point indexed by k.
+                delta = [e for e in selected_edges if e.s == k]
+
+                # Filter out anything that goes/comes from a and b.
+                delta = [e2 for e2 in delta
+                         if not (e2.s == e1.s or e2.d == e1.s or e2.s == e1.d or e2.d == e1.d)]
+
+                # Extract the violated edges only.
+                violating_edges = [e2
+                                   for e2 in delta
+                                   if WindFarm.are_crossing(self.__points[e1.s],
+                                                            self.__points[e1.d],
+                                                            self.__points[e2.s],
+                                                            self.__points[e2.d])
+                                   ]
+                if len(violating_edges) > 0:
+                    violating_edges = [e.idx for e in violating_edges]
+                    constraints_to_be_added.append([self.__ypos(e1.s, e1.d), self.__ypos(e1.d, e1.s)] + violating_edges)
+
+        return constraints_to_be_added
+
+    def __add_violating_constraint(self, crossings):
+        """
+
+        :param crossings:
+        :return: None
+        """
+
+        if self.cross_mode=='lazy':
+            constraint_add = self.__model.linear_constraints.advanced.add_lazy_constraints
+        else:
+            constraint_add = self.__model.linear_constraints.add
+
+        if len(crossings) > 0:
+            coefficients = [1] * len(crossings)
+            constraint_add(
+                lin_expr=[cplex.SparsePair(
+                    ind=crossings,
+                    val=coefficients
+                )],
+                senses=["L"],
+                rhs=[1]
+            )
+
+    # Public methods
     def parse_command_line(self):
 
         """
@@ -157,681 +843,6 @@ class WindFarm:
         self.__build_input_files()
         self.__build_name()
 
-    def __read_turbines_file(self):
-
-        """
-        py:function:: read_turbines_file(self)
-
-        Read the turbines file
-
-        """
-
-        points = []
-
-        # the following opens and closes the file within the block
-        i=1
-        with open(self.turb_file, "r") as fp:
-            for line in fp:
-                words = list(map(int, line.split()))
-                points.append(self.__Point(i, words[0], words[1], words[2]))
-                if int(words[2]) < 0.5:
-                    self.__n_substations += 1
-                i+=1
-
-        self.__n_nodes = len(points)
-        self.__n_turbines = self.__n_nodes - self.__n_substations
-        self.__points = points
-
-    def __read_cables_file(self):
-
-        """
-        py:function:: read_cables_file(self)
-
-        Read the cables file
-
-        """
-
-        cables = []
-
-        # the following opens and closes the file within the block
-        with open(self.cbl_file, "r") as fp:
-            for line in fp:
-                # if len(cables) > 3: break
-                words = line.split()
-                cables.append(self.__Cable(int(words[0]), float(words[1]), int(words[2])))
-
-        self.__num_cables = len(cables)
-        self.__cables = cables
-
-    def __fpos(self, i_off, j_off):
-        """
-
-        :param i_off:
-        :param j_off:
-        :return:
-        """
-
-        return self.__f_start + i_off*self.__n_nodes + j_off
-
-    def __xpos(self, i_off, j_off, k_off):
-        """
-        .. description missing ..
-        :param i_off:
-        :param j_off:
-        :param k_off:
-        :return:
-        """
-
-        return self.__x_start + i_off*self.__n_nodes*self.__num_cables + j_off*self.__num_cables + k_off
-
-    def __ypos(self, i_off, j_off):
-        """
-
-        :param i_off:
-        :param j_off:
-        :return:
-        """
-
-        return self.__y_start + i_off*self.__n_nodes + j_off
-
-    def __slackpos(self, slack_off):
-
-        """
-        py:function:: __slackpos(offset, k, inst)
-
-        .. description missing ..
-
-        :param offset: Offset w.r.t slackstart and the substation indexed by h
-
-        """
-        return self.__slack_start + slack_off
-
-    def __build_model_cplex(self):
-
-        """
-        Build the model using classical cplex API
-
-        :return: The model filled with variables and constraints
-        """
-        if not self.__interface == 'cplex':
-            raise NameError("For some reason the classical model has been called when " +
-                            "the 'interface' variable has been set to: " + self.__interface)
-
-        self.__model = cplex.Cplex()
-
-        self.__model.set_problem_name(self.__name)
-        self.__model.objective.set_sense(self.__model.objective.sense.minimize)
-
-        # Add y(i,j) variables
-        self.__y_start = self.__model.variables.get_num()
-        self.__model.variables.add(
-            types=[self.__model.variables.type.binary]
-                  * (self.__n_nodes**2),
-            names=["y({0},{1})".format(i+1, j+1)
-                   for i in range(self.__n_nodes)
-                   for j in range(self.__n_nodes)]
-        )
-
-        # Add f(i,j) variables
-        self.__f_start = self.__model.variables.get_num()
-        self.__model.variables.add(
-            types=[self.__model.variables.type.continuous]
-                  * (self.__n_nodes**2),
-            names=["f({0},{1})".format(i+1, j+1)
-                   for i in range(self.__n_nodes)
-                   for j in range(self.__n_nodes)]
-        )
-
-        # Add x(i,j,k) variables
-        self.__x_start = self.__model.variables.get_num()
-        self.__model.variables.add(
-            types=[self.__model.variables.type.binary]
-                  * (self.__n_nodes**2)
-                  * self.__num_cables,
-            names=["x({0},{1},{2})".format(i+1, j+1, k+1)
-                   for i in range(self.__n_nodes)
-                   for j in range(self.__n_nodes)
-                   for k in range(self.__num_cables)],
-            obj=[cable.price * WindFarm.get_distance(v,u)
-                 for v in self.__points
-                 for u in self.__points
-                 for cable in self.__cables]
-        )
-
-        if self.__slack:
-            # Add s(h) (slack) variables
-            self.__slack_start = self.__model.variables.get_num()
-            self.__model.variables.add(
-                types=[self.__model.variables.type.continuous]
-                      * self.__n_substations,
-                names=["s({0})".format(h+1)
-                       for h, point in enumerate(self.__points)
-                       if point.power < -0.5],
-                obj=[1e9] * self.__n_substations
-            )
-        else:
-            # No variables should be added, then.
-            self.__slack_start = -1
-
-        # No self-loop constraints on y(i,i) = 0 \forall i
-        self.__model.variables.set_upper_bounds([
-            (self.__ypos(i,i), 0)
-            for i in range(self.__n_nodes)
-        ])
-
-        # No self-loop constraints on f(i,i) = 0 \forall i
-        self.__model.variables.set_upper_bounds([
-            (self.__fpos(i,i), 0)
-            for i in range(self.__n_nodes)
-        ])
-
-        # No self-loop constraints on x(i,i,k) = 0 \forall i,k
-        self.__model.variables.set_upper_bounds([
-            (self.__xpos(i,i,k), 0)
-            for i in range(self.__n_nodes)
-            for k in range(self.__num_cables)
-        ])
-
-        # Energy flow must be positive
-        self.__model.variables.set_lower_bounds([
-            (self.__fpos(i,j), 0)
-            for i in range(self.__n_nodes)
-            for j in range(self.__n_nodes)
-        ])
-
-        # Out-degree constraints (substations)
-        self.__model.linear_constraints.add(
-            lin_expr=[cplex.SparsePair(
-                ind=[self.__ypos(h,j) for j in range(self.__n_nodes)],
-                val=[1.0] * self.__n_nodes
-            )
-                for h,point in enumerate(self.__points)
-                if point.power<-0.5
-            ],
-            senses=["E"] * self.__n_substations,
-            rhs=[0] * self.__n_substations
-        )
-
-        # Out-degree constraints (turbines)
-        self.__model.linear_constraints.add(
-            lin_expr=[cplex.SparsePair(
-                ind=[self.__ypos(h,j) for j in range(self.__n_nodes)],
-                val=[1.0] * self.__n_nodes
-            )
-                for h,point in enumerate(self.__points)
-                if point.power>=0.5
-            ],
-            senses=["E"] * self.__n_turbines,
-            rhs=[1] * self.__n_turbines
-        )
-
-        # Flow balancing constraint
-        self.__model.linear_constraints.add(
-            lin_expr=[cplex.SparsePair(
-                ind=[self.__fpos(h,j) for j in range(self.__n_nodes) if h!=j] +
-                    [self.__fpos(j,h) for j in range(self.__n_nodes) if j!=h],
-                val=[1] * (self.__n_nodes - 1) + [-1] * (self.__n_nodes - 1)
-            )
-                for h,point in enumerate(self.__points)
-                if point.power >= 0.5
-            ],
-            senses=["E"] * self.__n_turbines,
-            rhs=[point.power for point in self.__points if point.power > 0.5]
-        )
-
-        # Maximum number of cables linked to a substation
-        self.__model.linear_constraints.add(
-            lin_expr=[cplex.SparsePair(
-                ind=[self.__ypos(i,h) for i in range(self.__n_nodes)] +
-                    [self.__slackpos(h)] if self.__slack else [],
-                val=[1] * self.__n_nodes +
-                    [-1] if self.__slack else []
-            )
-                for h,point in enumerate(self.__points)
-                if point.power < -0.5
-            ],
-            senses=["L"] * self.__n_substations,
-            rhs=[self.c] * self.__n_substations
-        )
-
-        # Avoid double cables between two points
-        self.__model.linear_constraints.add(
-            lin_expr=[cplex.SparsePair(
-                ind=[self.__ypos(i,j)] + [self.__xpos(i,j,k) for k in range(self.__num_cables)],
-                val=[1] + [-1] * self.__num_cables
-            )
-                for i in range(self.__n_nodes)
-                for j in range(self.__n_nodes)
-            ],
-            senses=["E"] * (self.__n_nodes**2),
-            rhs=[0] * (self.__n_nodes**2)
-        )
-
-        # We want to guarantee that the cable is enough for the connection
-        self.__model.linear_constraints.add(
-            lin_expr=[cplex.SparsePair(
-                ind=[self.__fpos(i,j)] + [self.__xpos(i,j,k) for k in range(self.__num_cables)],
-                val=[-1] + [cable.capacity for cable in self.__cables]
-            )
-                for i in range(self.__n_nodes)
-                for j in range(self.__n_nodes)
-            ],
-            senses=["G"] * (self.__n_nodes**2),
-            rhs=[0] * (self.__n_nodes**2)
-        )
-
-        # (in case) No-crossing lazy constraints
-        if self.cross_mode == 'lazy':
-            for i, a in enumerate(self.__points):
-                # We want to lighten these constraints as much as possible; for this reason, j=i+1
-                for j, b in enumerate(self.__points[i+1:], start=i+1):
-                    for k, c in enumerate(self.__points):
-                        self.__add_violating_constraint(i,j,k)
-
-        # Adding the parameters to the model
-        self.__model.parameters.mip.strategy.rinsheur.set(self.rins)
-        if self.polishtime < self.time_limit:
-            self.__model.parameters.mip.polishafter.time.set(self.polishtime)
-        self.__model.parameters.timelimit.set(self.time_limit)
-
-        # Writing the model to a proper location
-        self.__model.write(self.__project_path + "/out/" + self.out_dir_name + "/lpmodel.lp")
-
-    def __build_model_docplex(self):
-
-        """
-        Build the model using docplex API
-
-        :return: The model filled with variables and constraints
-        """
-        if not self.__interface == 'docplex':
-            raise NameError("For some reason the docplex model has been called when " +
-                            "the 'interface' variable has been set to: " + self.__interface)
-
-        self.__model = Model(name=self.__name)
-        self.__model.set_time_limit(self.time_limit)
-
-        # Add y(i,j) variables
-        self.__y_start = self.__model.get_statistics().number_of_variables
-        self.__model.binary_var_list(
-            ((i+1,j+1)
-             for i in range(self.__n_nodes)
-             for j in range(self.__n_nodes)),
-            name="y%s"
-        )
-
-        # Add f(i,j) variables
-        self.__f_start = self.__model.get_statistics().number_of_variables
-        self.__model.continuous_var_list(
-            ((i+1,j+1)
-             for i in range(self.__n_nodes)
-             for j in range(self.__n_nodes)),
-            name="f%s"
-        )
-
-        # Add x(i,j,k) variables
-        self.__x_start = self.__model.get_statistics().number_of_variables
-        self.__model.binary_var_list(
-            ((i+1,j+1,k+1)
-             for i in range(self.__n_nodes)
-             for j in range(self.__n_nodes)
-             for k in range(self.__num_cables)),
-            name="x%s"
-        )
-
-        # Add s(h) slack variables
-        if self.__slack:
-            self.__slack_start = self.__model.get_statistics().number_of_variables
-            self.__model.continuous_var_list(
-                (h+1
-                 for h, point in enumerate(self.__points)
-                 if point.power < -0.5),
-                name="s(%s)"  # The parenthesis are necessary here, since this set of variables is 1-dimensional
-            )
-        else:
-            # No slack variables, then.
-            self.__slack_start = -1
-
-        # No self-loops constraints on y(i,i) variables (\forall i)
-        self.__model.add_constraints(
-            self.__model.get_var_by_index(self.__ypos(i,i)) == 0
-            for i in range(self.__n_nodes)
-        )
-
-        # No self-loops constraints on f(i,i) variables (\forall i)
-        self.__model.add_constraints(
-            self.__model.get_var_by_index(self.__fpos(i,i)) == 0
-            for i in range(self.__n_nodes)
-        )
-
-        # No self-loops constraints on x(i,i, k) variables (\forall i, \forall k))
-        self.__model.add_constraints(
-            self.__model.get_var_by_index(self.__xpos(i,i,k)) == 0
-            for i in range(self.__n_nodes)
-            for k in range(self.__num_cables)
-        )
-
-        # Out-degree constraints (substations)
-        self.__model.add_constraints(
-            self.__model.sum(
-                self.__model.get_var_by_index(self.__ypos(h,j))
-                for j in range(self.__n_nodes)
-            )
-            ==
-            0
-            for h, point in enumerate(self.__points)
-            if point.power < -0.5
-        )
-
-        # Out-degree constraints (turbines)
-        self.__model.add_constraints(
-            self.__model.sum(
-                self.__model.get_var_by_index(self.__ypos(h,j))
-                for j in range(self.__n_nodes)
-            )
-            ==
-            1
-            for h, point in enumerate(self.__points)
-            if point.power > 0.5
-        )
-
-        # Maximum number of cables linked to a substation
-        self.__model.add_constraints(
-            self.__model.sum(
-                self.__model.get_var_by_index(self.__ypos(i,h))
-                for i in range(self.__n_nodes)
-            )
-            <=
-            self.c + self.__model.get_var_by_index(self.__slackpos(h))
-            for h,point in enumerate(self.__points)
-            if point.power < -0.5
-        )
-
-        # Flow balancing constraint
-        self.__model.add_constraints(
-            self.__model.sum(
-                self.__model.get_var_by_index(self.__fpos(h,j))
-                for j in range(self.__n_nodes)
-            )
-            ==
-            self.__model.sum(
-                self.__model.get_var_by_index(self.__fpos(j,h))
-                for j in range(self.__n_nodes)
-            ) + self.__points[h].power
-            for h,point in enumerate(self.__points)
-            if point.power > 0.5
-        )
-
-        # Avoid double cable between two points
-        self.__model.add_constraints(
-            self.__model.get_var_by_index(self.__ypos(i,j))
-            ==
-            self.__model.sum(
-                self.__model.get_var_by_index(self.__xpos(i,j,k))
-                for k in range(self.__num_cables)
-            )
-            for i in range(self.__n_nodes)
-            for j in range(self.__n_nodes)
-        )
-
-        # Guarantee that the cable is enough for the connection
-        self.__model.add_constraints(
-            self.__model.sum(
-                cable.capacity * self.__model.get_var_by_index(self.__xpos(i,j,k))
-                for k,cable in enumerate(self.__cables)
-            )
-            >=
-            self.__model.get_var_by_index(self.__fpos(i,j))
-            for i in range(self.__n_nodes)
-            for j in range(self.__n_nodes)
-        )
-
-        # No-crossing lazy constraints don't work in docplex.
-        if self.cross_mode == 'lazy':
-            raise ValueError("No lazy constraints admitted in docplex.")
-
-        # Objective function
-        self.__model.minimize(
-            self.__model.sum(
-                cable.price * WindFarm.get_distance(u,v) * self.__model.get_var_by_index(self.__xpos(i,j,k))
-                for k,cable in enumerate(self.__cables)
-                for i,u in enumerate(self.__points)
-                for j,v in enumerate(self.__points)
-            )
-        )
-
-        # Adding the parameters to the model
-        self.__model.parameters.mip.strategy.rinsheur.set(self.rins)
-        if self.polishtime < self.time_limit:
-            self.__model.parameters.mip.polishafter.time.set(self.polishtime)
-        self.__model.parameters.timelimit.set(self.time_limit)
-
-        # Writing the model to a proper location
-        self.__model.export_as_lp(path = self.__project_path+"/out/"+self.out_dir_name+"/lpmodel.lp")
-
-    def __get_solution(self):
-
-        """
-        Read all x(i, j, k) variables and store the ones with value '1' into the solution
-
-        :return: List of CableSol named tuples
-        """
-        if self.__interface == 'cplex':
-            sol = [self.__CableSol(i+1,j+1,k+1)
-                   for i in range(self.__n_nodes)
-                   for j in range(self.__n_nodes)
-                   for k in range(self.__num_cables)
-                   if self.__model.solution.get_values(self.__xpos(i,j,k))>0.5]
-        elif self.__interface == 'docplex':
-            sol = [self.__CableSol(i+1,j+1,k+1)
-                   for i in range(self.__n_nodes)
-                   for j in range(self.__n_nodes)
-                   for k in range(self.__num_cables)
-                   if self.__model.solution.get_value(self.__model.get_var_by_index(self.__xpos(i,j,k)))>0.5]
-        else:
-            raise ValueError("Unknown interface. I've got: " + str(self.__interface))
-
-        return sol
-
-    def __build_input_files(self):
-        """
-        py:function:: __build_input_files(self)
-
-        Sets the input file correctly, based on the dataset selection
-
-        """
-        if not type(self.data_select) == int:
-            raise TypeError("Expecting an integer value representing the dataset. Given: " + str(self.data_select))
-        if self.data_select <= 0 or self.data_select >= 31:
-            raise ValueError("The dataset you're trying to reach is out of range.\n" +
-                             "Range: [1-30]. Given: " + str(self.data_select))
-
-        data_tostring = str(self.data_select)
-        if 1 <= self.data_select <= 9:
-            data_tostring = "0" + data_tostring
-
-        abspath = os.path.abspath(os.path.dirname(__file__)).strip()
-
-        path_dirs = abspath.split('/')
-        path_dirs = [str(el) for el in path_dirs]
-        path_dirs.remove('')
-
-        self.__project_path = ''
-        or2_found = False
-        i = 0
-        while not or2_found:
-            if path_dirs[i] == 'OR2':
-                or2_found = True
-            self.__project_path += '/' + path_dirs[i]
-            i += 1
-
-        self.turb_file = self.__project_path + "/data/data_" + data_tostring + ".turb"
-        self.cbl_file = self.__project_path + "/data/data_" + data_tostring + ".cbl"
-
-    def __build_name(self):
-        """
-        py:function:: __build_name(self)
-
-        Sets the name of the wind farm correctly, based on the dataset selection
-
-        """
-        if not type(self.data_select) == int:
-            raise TypeError("Expecting an integer value representing the dataset. Given: " + str(self.data_select))
-        if self.data_select <= 0 or self.data_select >= 31:
-            raise ValueError("The dataset you're trying to reach is out of range.\n" +
-                             "Range: [1-30]. Given: " + str(self.data_select))
-
-        # We assume that, in this context, we'll never have a WF >=10
-        wf_number = 0
-        if 0 <= self.data_select <= 6:
-            wf_number = 1
-        elif 7 <= self.data_select <= 15:
-            wf_number = 2
-        elif 16 <= self.data_select <= 19:
-            wf_number = 3
-        elif 20 <= self.data_select <= 21:
-            wf_number = 4
-        elif 26 <= self.data_select <= 29:
-            wf_number = 5
-        elif 30 <= self.data_select <= 31:
-            wf_number = 6
-
-        if wf_number == 0:
-            raise ValueError("Something went wrong with the Wind Farm number;\n" +
-                             "check the dataset selection parameter: " + str(self.data_select))
-
-        self.__name = "Wind Farm 0" + str(wf_number)
-
-    def __plot_high_quality(self, show=False, export=False):
-
-        """
-        py:function:: plot_high_quality(inst, edges)
-
-        Plot the solution using standard libraries
-
-        :param export: whatever this means
-
-        """
-        edges = self.__get_solution()
-        G = nx.DiGraph()
-
-        mapping = {}
-
-        for i in range(self.__n_nodes):
-            if self.__points[i].power < -0.5:
-                mapping[i] = 'S{0}'.format(i + 1)
-            else:
-                mapping[i] = 'T{0}'.format(i + 1)
-
-        for index, node in enumerate(self.__points):
-            G.add_node(index)
-
-        for edge in edges:
-            G.add_edge(edge.source - 1, edge.destination - 1)
-
-        pos = {i: (point.x, point.y) for i, point in enumerate(self.__points)}
-
-        # Avoid re scaling of axes
-        plt.gca().set_aspect('equal', adjustable='box')
-
-        # draw graph
-        nx.draw(G, pos, with_labels=True, node_size=1300, alpha=0.3, arrows=True, labels=mapping, node_color='g',
-                linewidth=10)
-
-        if export:
-            plt.savefig(self.__project_path + '/out/' + self.out_dir_name + '/img/foo.svg')
-
-        # show graph
-        if show:
-            plt.show()
-
-    def __are_crossing(self, pt1, pt2, pt3, pt4):
-        """
-        Recall that one edge has its extremes on (x_1,y_1) and (x_2,y_2);
-        the same goes for the second edge, which extremes are (x_3,y_3) and (x_4,y_4).
-
-        :param pt1: first point
-        :param pt2: second point
-        :param pt3: third point
-        :param pt4: fourth point
-        :return:
-        """
-        det_A = (pt4.x - pt3.x) * (pt1.y - pt2.y) - (pt4.y - pt3.y) * (pt1.x - pt2.x)
-        if det_A == 0:
-            return False
-
-        # If it's not zero, then the 2x2 system has exactly one solution, which is:
-        det_mu = (pt1.x - pt3.x) * (pt1.y - pt2.y) - (pt1.y - pt3.y) * (pt1.x - pt2.x)
-        det_lambda = (pt4.x - pt3.x) * (pt1.y - pt3.y) - (pt4.y - pt3.y) * (pt1.x - pt3.x)
-
-        mu = det_mu / det_A
-        lambd = det_lambda / det_A
-
-        if 0 < lambd < 1 and 0 < mu < 1:
-            return True
-        else:
-            return False
-
-    def __get_violated_edges(self):
-        """
-        This function gets a list of chosen edges (ys) and returns a list of violated edges
-        :param ys: chosen edges
-        :return: a list of violated edges in the (a,b,c,d)-tuple form
-        """
-
-        # Gets the values from the model
-        ys = [(i,j)
-              for i in range(self.__n_nodes)
-              for j in range(self.__n_nodes)]
-        ys_values = self.__model.solution.get_values([self.__ypos(i,j)
-                                                      for i in range(self.__n_nodes)
-                                                      for j in range(self.__n_nodes)])
-        # extracts only the selected edges
-        ones = [ys[i] for i,y in enumerate(ys_values) if y>0.5]
-
-        # extracts the violated edges:
-        # recall that we're interested in the (a,b,c,d) tuple,
-        # rather than the two corresponding edges.
-
-        violated = [(i1,j1, i2, j2)
-                    for h, (i1,j1) in enumerate(ones)
-                    for (i2,j2) in ones[h+1:]
-                    if self.__are_crossing(self.__points[i1],
-                                           self.__points[j1],
-                                           self.__points[i2],
-                                           self.__points[j2])]
-
-        return violated
-
-    def __add_violating_constraint(self, i,j,k):
-        # Skipping the points that do not occur in the (a,b) and (b,a) edges
-        a = self.__points[i]
-        b = self.__points[j]
-        c = self.__points[k]
-
-        if self.cross_mode=='lazy':
-            constraint_add = self.__model.linear_constraints.advanced.add_lazy_constraints
-        else:
-            constraint_add = self.__model.linear_constraints.add
-
-        if not (c == a or c == b):
-            current_couple = [self.__ypos(i,j), self.__ypos(j,i)]
-            crossings = [self.__ypos(k,l)
-                         for l,d in enumerate(self.__points[k+1:], start=k+1)
-                         if self.__are_crossing(a,b,c,d)]
-
-            if len(crossings) > 0:
-                summation =  crossings + current_couple
-                coefficients = [1] * len(summation)
-                constraint_add(
-                    lin_expr=[cplex.SparsePair(
-                        ind=summation,
-                        val=coefficients
-                    )],
-                    senses=["L"],
-                    rhs=[1]
-                )
-
     def build_model(self):
         """
         Builds the model with the right interface.
@@ -852,7 +863,7 @@ class WindFarm:
         Simply solves the problem by invoking the .solve() method within the model selected.
         """
 
-        if self.cross_mode == 'lazy' or self.cross_mode == 'no':
+        if self.cross_mode == 'lazy' or self.cross_mode == 'no' or self.cross_mode == 'callback':
             # This simply means that CPLEX has everything he needs to have inside his enviroment
             self.__model.solve()
         elif self.cross_mode == 'loop':
@@ -860,31 +871,29 @@ class WindFarm:
             opt = False     # "has the optimum been reached?"
             starting_time = time.time()
             current_time = time.time()
+
             for i in range(3):
                 self.__model.solve()
-            while xs and not opt and current_time-starting_time < 600:
+
+            while (xs or not opt) and current_time-starting_time < 600:
                 self.__model.solve()
+                self.plot_solution(show=False, high=True, export=True)
 
-                crossed = self.__get_violated_edges()
-                print(crossed)
+                violations = self.__get_violated_edges()
 
-                if len(crossed) > 0:
-                    for xs in crossed:
-                        self.__add_violating_constraint(xs[0], xs[1], xs[2])
-                        self.__add_violating_constraint(xs[2], xs[3], xs[0])
+                if len(violations) > 0:
+                    xs = True
+                    for violation in violations:
+                        self.__add_violating_constraint(violation)
                 else:
-                    # No crossings detected? Check.
                     xs = False
+                    self.__best_sol = self.__get_solution()
+                    self.__best_incumbent = self.__model.solution.get_objective_value()
 
                 if self.__model.solution.get_status() == self.__model.solution.status.MIP_optimal:
-                    # Optimality reached? Check.
                     opt = True
+
                 current_time = time.time()
-
-
-        elif self.cross_mode == 'callback':
-            # Something will happen here...
-            raise ValueError("Callbacks not available, yet!")
         else:
             raise ValueError("Unrecognized cross-strategy; given: " + str(self.cross_mode))
 
@@ -928,7 +937,7 @@ class WindFarm:
             G.add_node(index, pos=(node.x, node.y))
 
         for edge in edges:
-            G.add_edge(edge.source - 1, edge.destination - 1, weight=edge.capacity)
+            G.add_edge(edge.s - 1, edge.d - 1, weight=edge.capacity)
 
         edge_trace = Scatter(
             x=[],
@@ -1005,6 +1014,34 @@ class WindFarm:
             (point1.y - point2.y) ** 2
         )
 
+    @staticmethod
+    def are_crossing(pt1, pt2, pt3, pt4):
+        """
+        Recall that one edge has its extremes on (x_1,y_1) and (x_2,y_2);
+        the same goes for the second edge, which extremes are (x_3,y_3) and (x_4,y_4).
+
+        :param pt1: first point
+        :param pt2: second point
+        :param pt3: third point
+        :param pt4: fourth point
+        :return:
+        """
+        det_A = (pt4.x - pt3.x) * (pt1.y - pt2.y) - (pt4.y - pt3.y) * (pt1.x - pt2.x)
+        if det_A == 0:
+            return False
+
+        # If it's not zero, then the 2x2 system has exactly one solution, which is:
+        det_mu = (pt1.x - pt3.x) * (pt1.y - pt2.y) - (pt1.y - pt3.y) * (pt1.x - pt2.x)
+        det_lambda = (pt4.x - pt3.x) * (pt1.y - pt3.y) - (pt4.y - pt3.y) * (pt1.x - pt3.x)
+
+        mu = det_mu / det_A
+        lambd = det_lambda / det_A
+
+        if 0 < lambd < 1 and 0 < mu < 1:
+            return True
+        else:
+            return False
+
     # Get and set methods, in the Pythonic way
 
     @property
@@ -1035,9 +1072,9 @@ class WindFarm:
     def data_select(self, d):
         if not type(d) == int:
             raise TypeError("Expecting an integer value representing the dataset. Given: " + str(d))
-        if d <= -1 or d >= 31:
+        if d <= 0 or d >= 32:
             raise ValueError("The dataset you're trying to reach is out of range.\n" +
-                             "Range: [0-30]. Given: " + str(d))
+                             "Range: [1-31]. Given: " + str(d))
         self.__data_select = d
 
     @property
@@ -1080,7 +1117,7 @@ class WindFarm:
 
     @property
     def num_cables(self):
-        return self.__num_cables
+        return self.__n_cables
 
     @num_cables.setter
     def num_cables(self, nc):
@@ -1088,7 +1125,7 @@ class WindFarm:
             raise TypeError("The number of cables must be a positive integer number; given:" + str(nc))
         if not nc >= 0:
             raise AttributeError("The number of cables must be a positive integer number; given:" + str(nc))
-        self.__num_cables = nc
+        self.__n_cables = nc
 
     @property
     def c(self):
