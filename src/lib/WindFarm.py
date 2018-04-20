@@ -714,7 +714,7 @@ class WindFarm:
         if show:
             plt.show()
 
-    def __get_violated_edges(self):
+    def __get_violated_edges(self, selected_edges):
         """
             When called, this function returns a list of violations, which are a list of y_pos indexes,
             ready to be added to CPLEX or DOCPLEX.
@@ -722,7 +722,6 @@ class WindFarm:
                     [idx_1, ..., idx_m], where idx_i = y_pos(some_turb, some_other_turb)
         """
 
-        selected_edges = self.__get_solution(var='y')
 
         constraints_to_be_added = []
         for e1 in selected_edges:
@@ -880,7 +879,7 @@ class WindFarm:
                 self.__model.solve()
                 self.plot_solution(show=False, high=True, export=True)
 
-                violations = self.__get_violated_edges()
+                violations = self.__get_violated_edges(self.__get_solution(var='y'))
 
                 if len(violations) > 0:
                     xs = True
@@ -1038,7 +1037,7 @@ class WindFarm:
         mu = det_mu / det_A
         lambd = det_lambda / det_A
 
-        if 0 < lambd < 1 and 0 < mu < 1:
+        if 1e-3 < lambd < 1-1e-3 and 1e-3 < mu < 1-1e-3:
             return True
         else:
             return False
