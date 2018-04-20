@@ -1,8 +1,11 @@
-import networkx as nx
 import argparse
 import os
 import time
 import datetime
+try:
+    import networkx as nx
+except:
+    import lib.networkx
 
 """
     OLD/TESTING FUNCTIONS
@@ -29,6 +32,7 @@ def p_input_read():
     return p
 """
 
+
 def parse_command_line():
     """
     py:function:: parse_command_line()
@@ -47,8 +51,8 @@ def parse_command_line():
         'samplesin': "../data/snvs.tsv",
         'genesin': "../data/hint+hi2012_edge_file.txt",
         'delta': 0.8,
-        'timeout': 10e12,  #for now, this will be ignored
-        'outfolder': default_folder
+        'timeout': 10e12,  # for now, this will be ignored
+        'outfolder': default_folder  # for now, this will be ignored
     }
 
     parser = argparse.ArgumentParser(description='Parser to receive input parameters.')
@@ -101,7 +105,6 @@ def parse_command_line():
         parameters['proteinsin'] = args.proteinsin
 
     return parameters
-
 
 
 def read_patients(filename, genes_map):
