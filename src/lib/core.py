@@ -104,7 +104,15 @@ def combinatorial_algorithm(G, k, patients, delta=0.8, prob=False):
 def enumerating_algorithm(G, k, patients, delta=0.8, prob=False):
     G = delta_removal(G, delta)
 
-    subgraphs = BDDE(G)
+    if prob:
+        obj_func = prob_cover
+    else:
+        obj_func = set_cover
 
-def obj_func(patients,S):
-    return cover_score(patients, S)
+    subgraphs = BDDE(G, k)
+
+    subgraphs_score = {subgraph: obj_func(patients, subgraph) for subgraph in subgraphs}
+    max_covering_subgraph = max(subgraphs_score, key=lambda subgraph: subgraphs_score[subgraph])
+
+    return max_covering_subgraph, subgraphs_score[max_covering_subgraph]
+
