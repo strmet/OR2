@@ -6,3 +6,6 @@ databaseSettings.xml
 debugger.xml
 editor.codeinsight.xml
 filetypes.xml
+baseRefactoring.xml
+editor.xml
+vcs.xml
