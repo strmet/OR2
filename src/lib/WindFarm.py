@@ -16,8 +16,9 @@ import time
 import argparse
 import cplex
 import math
+from .callback import *
 from collections import namedtuple
-
+from cplex.callbacks import LazyConstraintCallback
 
 class ValueWarning(UserWarning):
     pass
@@ -91,8 +92,11 @@ class WindFarm:
         self.__build_name()
         self.out_dir_name = 'test'
 
-    # Private methods, internal to our class:
+        # Cplex variables for callback
+        self.y_ij_vars = None
 
+
+    # Private methods, internal to our class:
     def __read_turbines_file(self):
 
         """
@@ -185,10 +189,13 @@ class WindFarm:
     def __build_model_cplex(self):
 
         """
+
         Build the model using classical cplex API
 
-        :return: The model filled with variables and constraints
+        :return:
+
         """
+
         if not self.__interface == 'cplex':
             raise NameError("For some reason the classical model has been called when " +
                             "the 'interface' variable has been set to: " + self.__interface)
@@ -199,7 +206,7 @@ class WindFarm:
 
         # Add y(i,j) variables
         self.__y_start = self.__model.variables.get_num()
-        self.__model.variables.add(
+        self.y_ij_vars = self.__model.variables.add(
             types=[self.__model.variables.type.binary]
                   * (self.__n_nodes**2),
             names=["y({0},{1})".format(i+1, j+1)
@@ -377,6 +384,7 @@ class WindFarm:
 
         # Writing the model to a proper location
         self.__model.write(self.__project_path + "/out/" + self.out_dir_name + "/lpmodel.lp")
+
 
     def __build_model_docplex(self):
 
@@ -865,6 +873,12 @@ class WindFarm:
         """
 
         if self.cross_mode == 'lazy' or self.cross_mode == 'no' or self.cross_mode == 'callback':
+            lazycb = self.__model.register_callback(LazyCallback)
+            lazycb.n_nodes = self.__n_nodes
+            lazycb.y_ij_vars = self.y_ij_vars
+            lazycb.get_viol = self.__get_violated_edges
+            lazycb.ypos = self.__ypos
+            lazycb.EdgeSol = self.__EdgeSol
             # This simply means that CPLEX has everything he needs to have inside his enviroment
             self.__model.solve()
         elif self.cross_mode == 'loop':
