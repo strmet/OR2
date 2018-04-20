@@ -10,41 +10,43 @@ from inout import *
 
 def BDDE(G,param=None):
     global parametri
-    if(param!=None):
+
+    if param is not None:
         parametri=param
     else:
         parametri=parametriDefault()
-    ListaNodi=["A"]#list(G.nodes)
+    ListaNodi=["A"]  # list(G.nodes)
 
-    #bestSolution=[] bestScore=100000
+    # bestSolution=[] bestScore=100000
     for v in ListaNodi:
         radice=v
         parametri['radice']=radice
         B=nx.DiGraph()
         parametri['B']=B
-        #print("Radice: "+v)
+        # print("Radice: "+v)
         DEPTH(G,[],v,[])
         G.remove_node(v)
         
         print(B.nodes)
         print(B.edges)
-        #nx.draw(B,with_labels=True,font_weight="bold",arrow=False)
+        # nx.draw(B,with_labels=True,font_weight="bold",arrow=False)
         plt.show()
         input()
 
-        #Esamino albero binomiale ricavato da sopra
-        if(len(B)!=0):
+        # Esamino albero binomiale ricavato da sopra
+        if len(B)!=0:
            
             leafs=[]
             radice=None
             for n in B:
-                if(B.out_degree(n)==0):#allora � una foglia
+
+                if B.out_degree(n)==0:  # allora è una foglia
                     leafs.append(n)
-                if(B.in_degree(n)==0):#allora � la radice
+                if B.in_degree(n)==0:  # allora è la radice
                     radice=n
             for n in leafs:
-                #trovo ramo che parte dalla radice e va fino alla foglia
-                #corrisponde al sottografo connesso che vogliamo esaminare
+                # trovo ramo che parte dalla radice e va fino alla foglia
+                # corrisponde al sottografo connesso che vogliamo esaminare
                 Percorso=nx.shortest_path(B,radice,n)
                 """"
                 print(Percorso)
@@ -53,8 +55,9 @@ def BDDE(G,param=None):
                     bestScore=score
                     BestSolution=Percorso
                 """
-    return (bestSolution,bestScore)    
-        
+    return (bestSolution, bestScore)
+
+
 def BREADTH(G,S,n,U):
     #print("BREADTH")
     #print("S: "+str(S)+"    Vertice:"+str(n)+"    U:"+str(U))    
@@ -73,7 +76,8 @@ def BREADTH(G,S,n,U):
         if(n2!=None):
             B.add_edge(n1,n2)
     return n1
-    
+
+
 def DEPTH(G,S,v,beta):
     #print("DEPTH")
     #print("S: "+str(S)+"    Vertice:"+str(v)+"    beta:"+str(beta))

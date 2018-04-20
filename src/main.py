@@ -8,11 +8,18 @@ def main():
     parameters = parse_command_line()
     k = parameters['k']
     delta = parameters['delta']
+    strategy = parameters['strategy']
     G = load_network(parameters['genesin'])
     id_to_str, str_to_id = read_genes(parameters['proteinsin'])
     patients = read_patients(parameters['samplesin'], str_to_id)
     t_start = time.time()
-    C, P_C = combinatorial_algorithm(G,k,patients)
+
+    if strategy == 'combinatorial':
+        C, P_C = combinatorial_algorithm(G,k,patients, prob=parameters['prob'])
+    #elif strategy == 'enumerate':
+    #    C, P_C = enumerating_algorithm(G,k,patients, prob=parameters['prob'])
+    #else:
+    #    raise ValueError("Unkown strategy given. Input: " + str(strategy))
     t_end = time.time()
 
     print("_________________")

@@ -1,5 +1,4 @@
 import networkx as nx
-import random
 
 
 def delta_removal(G, delta):
@@ -21,8 +20,8 @@ def delta_removal(G, delta):
     return G
 
 
-def cover_score(patients, l_v):
-    return len([
+def set_cover(patients, l_v):
+    return set([
         p for p in patients
         if genes_in_sample(l_v, patients[p])
     ])
@@ -35,13 +34,13 @@ def genes_in_sample(l_v, genes_list):
     return False
 
 
-def prob_score(patients,S):
+def prob_cover(patients, l_v):
     som=0.0
 
     for j in patients:
         prod=1.0
 
-        for i in S:
+        for i in l_v:
             if i in patients[j]:
                 prod*=1.0-patients[i][j]
         som+=1-prod
@@ -53,16 +52,20 @@ def combinatorial_algorithm(G, k, patients, delta=0.8, prob=False):
     G = delta_removal(G, delta)
 
     C = {}
-    P_C_score = 0
+    P_C = set()
 
     if prob:
-        scoring = prob_score
+        cover = prob_cover
+        ratio = lambda elem_diff, nodes_diff: elem_diff / len(nodes_diff)
+        better = lambda current, best: current>best
     else:
-        scoring = cover_score
+        cover = set_cover
+        ratio = lambda elem_diff, nodes_diff: len(elem_diff) / len(nodes_diff)
+        better = lambda current, best: len(current)>len(best)
 
     for v in G.nodes():
         C_v = {v}
-        P_C_v_score = scoring(patients, C_v)  # no need to compute this \foreach u
+        P_C_v = cover(patients, C_v)  # no need to compute this \foreach u
 
         p_v = {u: nx.shortest_path(G, v, u) for u in G.nodes() if u is not v}
 
@@ -71,37 +74,37 @@ def combinatorial_algorithm(G, k, patients, delta=0.8, prob=False):
             l_v_max = set()
 
             for u in G.nodes() - C_v:  # "-" is an overloaded operator, it means 'difference'
-
                 l_v = set(p_v[u])
 
                 if len(l_v | C_v) <= k:  # "|" is an overloaded operator, it means 'union'
-                    P_v_score = scoring(patients, l_v)
-                    s = P_v_score - P_C_v_score / len(l_v - C_v)
+                    P_v = cover(patients, l_v)
+
+                    s = ratio(P_v - P_C_v, l_v - C_v)
                     if maximum < s:
                         maximum = s
                         l_v_max = l_v
             C_v = C_v | l_v_max
-            P_C_v_score = scoring(patients, C_v)  # no need to compute this \foreach u
+            P_C_v = cover(patients, C_v)  # no need to compute this \foreach u
 
-        if P_C_v_score > P_C_score:
+        if better(P_C_v,P_C):  # if we've found a better solution, update it and let us know
             C = C_v
-            P_C_score = scoring(patients, C)
+            P_C = cover(patients, C)
             print("_________________")
             print()
             print("Best solution updated!")
             print("Current C (ids): ", C)
-            print("Current P_C (cardinality):", P_C_score)
+            if prob:
+                print("Current P_C (cardinality):", P_C)
+            else:
+                print("Current P_C (cardinality):", len(P_C))
 
-    return C, P_C_score
+    return C, P_C
 
+
+def enumerating_algorithm(G, k, patients, delta=0.8, prob=False):
+    G = delta_removal(G, delta)
+
+    subgraphs = BDDE(G)
 
 def obj_func(patients,S):
     return cover_score(patients, S)
-
-"""
-suppongo patients sia un dizionario con:
-chiave:id paziente -->  dizionario di geni
-Dizionario dei geni è :
-chiave:numero gene --> prob del gene j per il paziente i
-"""
-

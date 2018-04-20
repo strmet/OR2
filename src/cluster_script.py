@@ -26,6 +26,7 @@ proteinsin = "../data/hint+hi2012_index_file.txt"
 samplesin = "../data/snvs.tsv"
 genesin = "../data/hint+hi2012_edge_file.txt"
 prob = [True, False]  # Probabilistic version of the problem or not?
+strategy = ['combinatorial', 'enumerate']  # Do we want to use the enumerate approach or the combinatorial one?
 ks = [2,3,4,5,6,7,8,9,10]  # On which ks do we want to test our algorithm?
 delta = 0.8  # for now, delta doesn't really matter to the analysis
 time_out = 604800  # for now, for each execution, we're willing to wait 7 days per run, maximum
