@@ -1,2 +1,8 @@
 .idea/*
 out/*
+/_linux/laf.xml
+colors.scheme.xml
+databaseSettings.xml
+debugger.xml
+editor.codeinsight.xml
+filetypes.xml

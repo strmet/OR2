@@ -1,6 +1,6 @@
 from lib import *
 
-G = loadNetwork("../data/hint+hi2012_edge_file.txt")
+G = load_network("../data/hint+hi2012_edge_file.txt")
 
 id_to_str, str_to_id = read_genes("../data/hint+hi2012_index_file.txt")
 patients = read_patients("../data/snvs.tsv", str_to_id)
