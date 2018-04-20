@@ -16,9 +16,8 @@ import time
 import argparse
 import cplex
 import math
-from .callback import *
 from collections import namedtuple
-from cplex.callbacks import LazyConstraintCallback
+from .callback import LazyCallback
 
 class ValueWarning(UserWarning):
     pass
@@ -91,9 +90,6 @@ class WindFarm:
         self.__build_input_files()
         self.__build_name()
         self.out_dir_name = 'test'
-
-        # Cplex variables for callback
-        self.y_ij_vars = None
 
 
     # Private methods, internal to our class:
@@ -206,7 +202,7 @@ class WindFarm:
 
         # Add y(i,j) variables
         self.__y_start = self.__model.variables.get_num()
-        self.y_ij_vars = self.__model.variables.add(
+        self.__model.variables.add(
             types=[self.__model.variables.type.binary]
                   * (self.__n_nodes**2),
             names=["y({0},{1})".format(i+1, j+1)
@@ -679,7 +675,7 @@ class WindFarm:
 
         self.__name = "Wind Farm 0" + str(wf_number)
 
-    def __plot_high_quality(self, show=False, export=False):
+    def __plot_high_quality(self, edges, show=False, export=False):
 
         """
         py:function:: plot_high_quality(inst, edges)
@@ -689,7 +685,6 @@ class WindFarm:
         :param export: whatever this means
 
         """
-        edges = self.__get_solution()
         G = nx.DiGraph()
 
         mapping = {}
@@ -764,7 +759,7 @@ class WindFarm:
         :return: None
         """
 
-        if self.cross_mode=='lazy':
+        if self.cross_mode == 'lazy':
             constraint_add = self.__model.linear_constraints.advanced.add_lazy_constraints
         else:
             constraint_add = self.__model.linear_constraints.add
@@ -871,13 +866,18 @@ class WindFarm:
         Simply solves the problem by invoking the .solve() method within the model selected.
         """
 
-        if self.cross_mode == 'lazy' or self.cross_mode == 'no' or self.cross_mode == 'callback':
+        if self.cross_mode == 'callback':
             lazycb = self.__model.register_callback(LazyCallback)
             lazycb.n_nodes = self.__n_nodes
-            lazycb.y_ij_vars = self.y_ij_vars
-            lazycb.get_viol = self.__get_violated_edges
+            #lazycb.vars = self.__model.variables
+            lazycb.get_violated_edges = self.__get_violated_edges
             lazycb.ypos = self.__ypos
             lazycb.EdgeSol = self.__EdgeSol
+            lazycb.plot = self.__plot_high_quality
+            lazycb.points = self.__points
+
+            self.__model.solve()
+        elif self.cross_mode == 'lazy' or self.cross_mode == 'no':
             # This simply means that CPLEX has everything he needs to have inside his enviroment
             self.__model.solve()
         elif self.cross_mode == 'loop':
@@ -1008,7 +1008,7 @@ class WindFarm:
         py.plot(fig, filename=self.__project_path + '/out/' + self.out_dir_name + '/img/wind_farm.html')
 
         if high:
-            self.__plot_high_quality(show=show, export=export)
+            self.__plot_high_quality(edges = self.__get_solution(), show=show, export=export)
 
     @staticmethod
     def get_distance(point1, point2):

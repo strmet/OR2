@@ -1,3 +1,4 @@
+import cplex
 from cplex.callbacks import LazyConstraintCallback
 
 class LazyCallback(LazyConstraintCallback):
@@ -17,28 +18,35 @@ class LazyCallback(LazyConstraintCallback):
     # are set externally after registering the callback.
     def __init__(self, env):
         LazyConstraintCallback.__init__(self, env)
-    '''
-    def __call__(self):
-        for j in self.locations:
-            isused = self.get_values(self.used[j])
-            served = sum(self.get_values(
-                [self.supply[c][j] for c in self.clients]))
-            if served > (len(self.clients) - 1.0) * isused + EPS:
-                print('Adding lazy constraint %s <= %d*used(%d)' %
-                      (' + '.join(['supply(%d)(%d)' % (x, j) for x in self.clients]),
-                       len(self.clients) - 1, j))
-                self.add(constraint=cplex.SparsePair(
-                    [self.supply[c][j] for c in self.clients] + [self.used[j]],
-                    [1.0] * len(self.clients) + [-(len(self.clients) - 1)]),
-                    sense='L',
-                    rhs=0.0)
-    '''
+
+    def add_violating_constraint(self, crossing):
+        print(crossing)
+
+        #### In questa parte c'è l'errore
+        if len(crossing) > 0:
+            coefficients = [1] * len(crossing)
+            self.add(
+                 constraint=cplex.SparsePair(
+                    ind=crossing,
+                    val=coefficients
+                ),
+                sense=["L"],
+                rhs=[1],
+            )
+
+
+
     def __call__(self):
 
-        sol = [self.EdgeSol(self.ypos(i, j), i + 1, j + 1)
+        sol = [self.EdgeSol(self.ypos(i, j), i, j)
                    for i in range(self.n_nodes)
                    for j in range(self.n_nodes)
                    if self.get_values(self.ypos(i, j)) > 0.5]
-        print(len(sol))
 
-        input()
+        violations = self.get_violated_edges(sol)
+
+        print(violations)
+        if len(violations) > 0:
+            for violation in violations:
+                self.add_violating_constraint(violation)
+
