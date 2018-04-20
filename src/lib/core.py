@@ -56,9 +56,9 @@ def combinatorial_algorithm(G, delta, k, patients):
                 l_v = set(p_v[u])
 
                 if len(l_v.union(C_v)) <= k:
-                    score=score_old(patients,l_v,P_C_v,C_v)
-                    if maximum < score:
-                        maximum = score
+                    s = score_old(patients,l_v,P_C_v,C_v)
+                    if maximum < s:
+                        maximum = s
                         l_v_max = l_v
             C_v = C_v.union(l_v_max)
             P_C_v = cover(patients, C_v)  # no need to compute this \foreach u
