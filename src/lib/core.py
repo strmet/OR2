@@ -90,7 +90,7 @@ def combinatorial_algorithm(G, k, patients, delta=0.8, prob=False):
             print()
             print("Best solution updated!")
             print("Current C (ids): ", C)
-            print("Current P_C (cardinality):", len(P_C))
+            print("Current P_C (cardinality):", P_C_score)
 
     return C, P_C_score
 
