@@ -1,6 +1,8 @@
 from lib.inout import *
 from lib.core import *
+#from lib.enumerationBDDE import *
 import time
+
 
 def main():
     parameters = parse_command_line()
@@ -10,7 +12,7 @@ def main():
     id_to_str, str_to_id = read_genes(parameters['proteinsin'])
     patients = read_patients(parameters['samplesin'], str_to_id)
     t_start = time.time()
-    C, P_C = combinatorial_algorithm(G,delta,k,patients)
+    C, P_C = combinatorial_algorithm(G,k,patients)
     t_end = time.time()
 
     print("_________________")

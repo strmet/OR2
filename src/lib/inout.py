@@ -2,10 +2,7 @@ import argparse
 import os
 import time
 import datetime
-try:
-    import networkx as nx
-except:
-    import lib.networkx
+import networkx as nx
 
 """
     OLD/TESTING FUNCTIONS
@@ -62,6 +59,8 @@ def parse_command_line():
     parser.add_argument('--genesin', type=str, help='File path to the genes (graph) data set')
     parser.add_argument('--delta', type=float, help='Delta parameter: edge weight tolerance')
     parser.add_argument('--k', type=int, help='Cardinality of the solution to be returned')
+    parser.add_argument('--prob', action="store_true", help='Type --prob if you want to use the' +
+                                                            'probaiblistic version of the problem')
     parser.add_argument('--timeout', type=int, help='timeout (seconds) in which the optimizer will stop iterating')
     parser.add_argument('--outfolder', type=str, help='The name (only!) of the folder to be created inside' +
                                                       'the \'$project_path\'/out/ directory')
