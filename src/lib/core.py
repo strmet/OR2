@@ -3,7 +3,6 @@ import networkx as nx
 
 def delta_removal(G, delta):
     """
-
     :param G: input graph
     :param delta: threshold
     :return: the graph G_I obtained from G by removing any edge with weight < delta
@@ -100,19 +99,23 @@ def combinatorial_algorithm(G, k, patients, delta=0.8, prob=False):
 
     return C, P_C
 
-
+def score_cover(patients, l_v):
+	len(set_cover(patients, l_v))
 def enumerating_algorithm(G, k, patients, delta=0.8, prob=False):
     G = delta_removal(G, delta)
 
     if prob:
         obj_func = prob_cover
     else:
-        obj_func = set_cover
+        obj_func = score_cover
 
-    subgraphs = BDDE(G, k)
 
-    subgraphs_score = {subgraph: obj_func(patients, subgraph) for subgraph in subgraphs}
-    max_covering_subgraph = max(subgraphs_score, key=lambda subgraph: subgraphs_score[subgraph])
-
-    return max_covering_subgraph, subgraphs_score[max_covering_subgraph]
-
+    parametri={}
+    parametri['k']=k
+    parametri['pazienti']=patients
+    parametri['funzioneLimite']=calcoloFunzioneLimiteSimple
+    parametri['scoringFunction']=obj_func
+    
+    bestSolution,bestScore=BDDE(G, parametri)
+    print(bestSolution)
+    print(bestScore)

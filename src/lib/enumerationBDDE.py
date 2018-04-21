@@ -10,54 +10,56 @@ from inout import *
 
 def BDDE(G,param=None):
     global parametri
-
-    if param is not None:
+    if(param!=None):
         parametri=param
     else:
         parametri=parametriDefault()
-    ListaNodi=["A"]  # list(G.nodes)
+    ListaNodi=list(G.nodes)[0]  # solo il primo per testing
 
-    # bestSolution=[] bestScore=100000
+    bestSolution=[] bestScore=0
     for v in ListaNodi:
         radice=v
         parametri['radice']=radice
         B=nx.DiGraph()
         parametri['B']=B
-        # print("Radice: "+v)
+        #print("Radice: "+v)
         DEPTH(G,[],v,[])
         G.remove_node(v)
         
         print(B.nodes)
         print(B.edges)
-        # nx.draw(B,with_labels=True,font_weight="bold",arrow=False)
+        nx.draw(B,with_labels=True,font_weight="bold",arrow=False)
         plt.show()
         input()
 
-        # Esamino albero binomiale ricavato da sopra
-        if len(B)!=0:
+        #Esamino albero binomiale ricavato da sopra
+        if(len(B)!=0):
            
             leafs=[]
             radice=None
             for n in B:
-
-                if B.out_degree(n)==0:  # allora Ã¨ una foglia
+                if(B.out_degree(n)==0):#allora è una foglia
                     leafs.append(n)
-                if B.in_degree(n)==0:  # allora Ã¨ la radice
+                if(B.in_degree(n)==0):#allora è la radice
                     radice=n
             for n in leafs:
-                # trovo ramo che parte dalla radice e va fino alla foglia
-                # corrisponde al sottografo connesso che vogliamo esaminare
+                #trovo ramo che parte dalla radice e va fino alla foglia
+                #corrisponde al sottografo connesso che vogliamo esaminare
                 Percorso=nx.shortest_path(B,radice,n)
-                """"
+                
                 print(Percorso)
-                score=obj_func(parametri['pazienti'],Percorso)
-                if(score<bestScore):
+                score=parametri['scoringFunction'](parametri['pazienti'],Percorso)
+                if(score>bestScore):
                     bestScore=score
                     BestSolution=Percorso
-                """
-    return (bestSolution, bestScore)
-
-
+			"""
+			subgraphs_score = {subgraph: obj_func(patients, subgraph) for subgraph in subgraphs}
+			max_covering_subgraph = max(subgraphs_score, key=lambda subgraph: subgraphs_score[subgraph])
+			return max_covering_subgraph, subgraphs_score[max_covering_subgraph]
+			"""
+                
+    return (bestSolution,bestScore)    
+        
 def BREADTH(G,S,n,U):
     #print("BREADTH")
     #print("S: "+str(S)+"    Vertice:"+str(n)+"    U:"+str(U))    
@@ -76,8 +78,7 @@ def BREADTH(G,S,n,U):
         if(n2!=None):
             B.add_edge(n1,n2)
     return n1
-
-
+    
 def DEPTH(G,S,v,beta):
     #print("DEPTH")
     #print("S: "+str(S)+"    Vertice:"+str(v)+"    beta:"+str(beta))
@@ -147,7 +148,7 @@ def parametriDefault():
     parametri['funzioneLimite']=calcoloFunzioneLimiteSimple
     return parametri
 #Nota:i dati del nodo rappresenta l'etichetta del vertice
-#tale etichetta puï¿½ essere qualsiasi cosa inclusi stringhe e numeri
+#tale etichetta può essere qualsiasi cosa inclusi stringhe e numeri
 class Nodo(object):
     def __init__(self,data):
         self.data=data
