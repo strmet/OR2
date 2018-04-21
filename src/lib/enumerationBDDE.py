@@ -16,7 +16,8 @@ def BDDE(G,param=None):
         parametri=parametriDefault()
     ListaNodi=list(G.nodes)[0]  # solo il primo per testing
 
-    bestSolution=[] bestScore=0
+    bestSolution=[] 
+    bestScore=0
     for v in ListaNodi:
         radice=v
         parametri['radice']=radice
@@ -52,11 +53,11 @@ def BDDE(G,param=None):
                 if(score>bestScore):
                     bestScore=score
                     BestSolution=Percorso
-			"""
-			subgraphs_score = {subgraph: obj_func(patients, subgraph) for subgraph in subgraphs}
-			max_covering_subgraph = max(subgraphs_score, key=lambda subgraph: subgraphs_score[subgraph])
-			return max_covering_subgraph, subgraphs_score[max_covering_subgraph]
-			"""
+                """
+                subgraphs_score = {subgraph: obj_func(patients, subgraph) for subgraph in subgraphs}
+                max_covering_subgraph = max(subgraphs_score, key=lambda subgraph: subgraphs_score[subgraph])
+                return max_covering_subgraph, subgraphs_score[max_covering_subgraph]
+                """
                 
     return (bestSolution,bestScore)    
         
