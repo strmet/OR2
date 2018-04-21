@@ -2,10 +2,7 @@ import argparse
 import os
 import time
 import datetime
-try:
-    import networkx as nx
-except:
-    import lib.networkx
+import networkx as nx
 
 """
     OLD/TESTING FUNCTIONS
@@ -52,6 +49,8 @@ def parse_command_line():
         'genesin': "../data/hint+hi2012_edge_file.txt",
         'delta': 0.8,
         'timeout': 10e12,  # for now, this will be ignored
+        'prob': False,
+        'strategy': 'combinatorial',
         'outfolder': default_folder  # for now, this will be ignored
     }
 
@@ -62,6 +61,9 @@ def parse_command_line():
     parser.add_argument('--genesin', type=str, help='File path to the genes (graph) data set')
     parser.add_argument('--delta', type=float, help='Delta parameter: edge weight tolerance')
     parser.add_argument('--k', type=int, help='Cardinality of the solution to be returned')
+    parser.add_argument('--strategy', choices=['combinatorial', 'enumerate'], help='Choose the strategy')
+    parser.add_argument('--prob', action="store_true", help='Type --prob if you want to use the' +
+                                                            'probaiblistic version of the problem')
     parser.add_argument('--timeout', type=int, help='timeout (seconds) in which the optimizer will stop iterating')
     parser.add_argument('--outfolder', type=str, help='The name (only!) of the folder to be created inside' +
                                                       'the \'$project_path\'/out/ directory')
@@ -70,7 +72,10 @@ def parse_command_line():
 
     if args.outfolder:
         parameters['outfolder'] = args.outfolder
-
+    if args.strategy:
+        parameters['strategy'] = args.strategy
+    if args.prob:
+        parameters['prob'] = True
     if args.timeout:
         if not (args.k>=1) or type(args.k)!=int:
             raise ValueError("The given 'k' is not a valid value (i.e. integer greater than 1). Given: " + str(args.k))

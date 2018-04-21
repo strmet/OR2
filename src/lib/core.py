@@ -1,10 +1,8 @@
 import networkx as nx
-import random
 
 
 def delta_removal(G, delta):
     """
-
     :param G: input graph
     :param delta: threshold
     :return: the graph G_I obtained from G by removing any edge with weight < delta
@@ -21,24 +19,48 @@ def delta_removal(G, delta):
     return G
 
 
-def cover(patients, l_v):
-    patients_covered = []
-
-    for p in patients:
-        genes_list = patients[p]
-        for v in l_v:
-            if v in genes_list:
-                patients_covered.append(p)
-                break  # da sistemare!!!
-
-    return set(patients_covered)
+def set_cover(patients, l_v):
+    return set([
+        p for p in patients
+        if genes_in_sample(l_v, patients[p])
+    ])
 
 
-def combinatorial_algorithm(G, delta, k, patients):
+def genes_in_sample(l_v, genes_list):
+    for v in l_v:
+        if v in genes_list:
+            return True
+    return False
+
+
+def prob_cover(patients, l_v):
+    som=0.0
+
+    for j in patients:
+        prod=1.0
+
+        for i in l_v:
+            if i in patients[j]:
+                prod*=1.0-patients[i][j]
+        som+=1-prod
+
+    return som
+
+
+def combinatorial_algorithm(G, k, patients, delta=0.8, prob=False):
     G = delta_removal(G, delta)
 
     C = {}
-    P_C = {}
+    P_C = set()
+
+    if prob:
+        cover = prob_cover
+        ratio = lambda elem_diff, nodes_diff: elem_diff / len(nodes_diff)
+        better = lambda current, best: current>best
+    else:
+        cover = set_cover
+        ratio = lambda elem_diff, nodes_diff: len(elem_diff) / len(nodes_diff)
+        better = lambda current, best: len(current)>len(best)
 
     for v in G.nodes():
         C_v = {v}
@@ -48,63 +70,52 @@ def combinatorial_algorithm(G, delta, k, patients):
 
         while len(C_v) < k:
             maximum = -1
-
             l_v_max = set()
 
-            for u in set(G.nodes()).difference(C_v):
-
+            for u in G.nodes() - C_v:  # "-" is an overloaded operator, it means 'difference'
                 l_v = set(p_v[u])
 
-                if len(l_v.union(C_v)) <= k:
-                    s = score_old(patients,l_v,P_C_v,C_v)
+                if len(l_v | C_v) <= k:  # "|" is an overloaded operator, it means 'union'
+                    P_v = cover(patients, l_v)
+
+                    s = ratio(P_v - P_C_v, l_v - C_v)
                     if maximum < s:
                         maximum = s
                         l_v_max = l_v
-            C_v = C_v.union(l_v_max)
+            C_v = C_v | l_v_max
             P_C_v = cover(patients, C_v)  # no need to compute this \foreach u
 
-        if len(P_C_v) > len(P_C):
+        if better(P_C_v,P_C):  # if we've found a better solution, update it and let us know
             C = C_v
             P_C = cover(patients, C)
             print("_________________")
             print()
             print("Best solution updated!")
             print("Current C (ids): ", C)
-            print("Current P_C (cardinality):", len(P_C))
+            if prob:
+                print("Current P_C (cardinality):", P_C)
+            else:
+                print("Current P_C (cardinality):", len(P_C))
 
     return C, P_C
 
+def score_cover(patients, l_v):
+	len(set_cover(patients, l_v))
+def enumerating_algorithm(G, k, patients, delta=0.8, prob=False):
+    G = delta_removal(G, delta)
 
-def score_old(patients,l_v,P_C_v,C_v):
-    P_v = cover(patients, l_v)
-    ratio = len(P_v.difference(P_C_v)) / len(l_v.difference(C_v))
-    return ratio
-def obj_func(patients,S):
-    return len(cover(patients, l_v))
+    if prob:
+        obj_func = prob_cover
+    else:
+        obj_func = score_cover
 
-"""
-suppongo patients sia un dizionario con:
-chiave:id paziente -->  dizionario di geni
-Dizionario dei geni è :
-chiave:numero gene --> prob del gene j per il paziente i
-"""
 
-def score(patients,S):
-    som=0
-    for j in patients:
-        #def scoreSingolo(patients,S):
-        prod=1
-        #dif=S.difference(set(patients[j])  potrei anche farlo ma è costoso
-        for i in S:
-            if( i in patients[j] ):
-                prod*=1-patients[i][j]
-            """
-            non serve
-            else:
-                prod*=1-0
-            """
-        membro=1-prod
-    som+=membro
-            
+    parametri={}
+    parametri['k']=k
+    parametri['pazienti']=patients
+    parametri['funzioneLimite']=calcoloFunzioneLimiteSimple
+    parametri['scoringFunction']=obj_func
     
-    
+    bestSolution,bestScore=BDDE(G, parametri)
+    print(bestSolution)
+    print(bestScore)

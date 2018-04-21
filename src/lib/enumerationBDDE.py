@@ -14,9 +14,10 @@ def BDDE(G,param=None):
         parametri=param
     else:
         parametri=parametriDefault()
-    ListaNodi=["A"]#list(G.nodes)
+    ListaNodi=list(G.nodes)[0]  # solo il primo per testing
 
-    #bestSolution=[] bestScore=100000
+    bestSolution=[] 
+    bestScore=0
     for v in ListaNodi:
         radice=v
         parametri['radice']=radice
@@ -46,13 +47,18 @@ def BDDE(G,param=None):
                 #trovo ramo che parte dalla radice e va fino alla foglia
                 #corrisponde al sottografo connesso che vogliamo esaminare
                 Percorso=nx.shortest_path(B,radice,n)
-                """"
+                
                 print(Percorso)
-                score=obj_func(parametri['pazienti'],Percorso)
-                if(score<bestScore):
+                score=parametri['scoringFunction'](parametri['pazienti'],Percorso)
+                if(score>bestScore):
                     bestScore=score
                     BestSolution=Percorso
                 """
+                subgraphs_score = {subgraph: obj_func(patients, subgraph) for subgraph in subgraphs}
+                max_covering_subgraph = max(subgraphs_score, key=lambda subgraph: subgraphs_score[subgraph])
+                return max_covering_subgraph, subgraphs_score[max_covering_subgraph]
+                """
+                
     return (bestSolution,bestScore)    
         
 def BREADTH(G,S,n,U):

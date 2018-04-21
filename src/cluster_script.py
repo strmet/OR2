@@ -6,14 +6,17 @@ import paramiko
 import getpass
 
 '''
-    FIRST TIME INFO
+    --- WARNING ---
+    FIRST TIME INFO, NECESSARY TODOs
     
-    Se non hai mai avviato questo script, come prima cosa esegui il login:
-    >>> ssh username@login.dei.unipd.it
-	>>> git clone <url>
-
-	(sì, la repository nel nostro spazio dei è necessaria)
-	In modo da clonare la repository dentro la 'home' del nostro spazio sul DEI    
+    (1)     Se non hai mai avviato questo script, come prima cosa esegui il login:
+            >>> ssh username@login.dei.unipd.it
+            >>> git clone <url>
+            
+            (sì, la repository nel nostro spazio dei è necessaria)
+            tl; dr: clonare la repository dentro la 'home' del nostro spazio sul DEI.
+    
+    (2)     Se non l'hai già fatto, scarica networkx dal sito (zip) ed estrai la cartella nella tua home.
 '''
 
 # Parametri per l'esecuzione
@@ -22,8 +25,10 @@ import getpass
 proteinsin = "../data/hint+hi2012_index_file.txt"
 samplesin = "../data/snvs.tsv"
 genesin = "../data/hint+hi2012_edge_file.txt"
-ks = [1,2,3,4,5,6,7]
-deltas = [0.8]  # for now, delta doesn't really matter to the analysis
+prob = [True, False]  # Probabilistic version of the problem or not?
+strategy = ['combinatorial', 'enumerate']  # Do we want to use the enumerate approach or the combinatorial one?
+ks = [2,3,4,5,6,7,8,9,10]  # On which ks do we want to test our algorithm?
+delta = 0.8  # for now, delta doesn't really matter to the analysis
 time_out = 604800  # for now, for each execution, we're willing to wait 7 days per run, maximum
 
 server = "login.dei.unipd.it"
@@ -37,9 +42,9 @@ ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 if getpass.getuser() == 'venir':
     pwd = str(getpass.getpass(prompt="Password: "))
     username = "venirluca"
-elif getpass.getuser() == '...':
+elif getpass.getuser() == 'iltuonomesultuoPC':
     pwd = str(getpass.getpass(prompt="Password: "))
-    username = "..."
+    username = "iltuonomeDEI"
 else:
     username = str(input("Please, enter your username (@" + server + "): "))
     pwd = str(getpass.getpass(prompt=username+"@" + server + ": "))
@@ -77,17 +82,19 @@ files = ['src/main.py', 'src/lib/core.py', 'src/lib/inout.py']
 # Create a local file that will be sent to the server (the infamous '.job' file)
 with open("commands.job", "w") as fp:
     fp.write("#!/bin/bash \n")
-    # (???)
-    # fp.write("export PYTHONPATH=$PYTHONPATH:/nfsd/opt/CPLEX12.6/cplex/python/3.4/x86-64_linux/ \n")
+    #fp.write("export PYTHONPATH=$PYTHONPATH:/nfsd/opt/CPLEX12.6/cplex/python/3.4/x86-64_linux/ \n")
+    fp.write("export PYTHONPATH=$PYTHONPATH:$HOME/networkx/ \n")
     for k in ks:
-        for d in deltas:
+        for p in probs:
 
             # Formatting/constructing the instruction to be given:
             instruction = "python3 "+ remote_path + "src/main.py"
 
             # Options to be added:
             instruction += " --k " + str(k)
-            instruction += " --delta " + str(d)
+            instruction += " --delta " + str(delta)
+            if p:
+                instruction += " --prob "
             instruction += " --proteinsin " + proteinsin
             instruction += " --samplesin " + samplesin
             instruction += " --genesin " + genesin
