@@ -1,4 +1,6 @@
 import networkx as nx
+from lib.enumerationBDDE import *
+
 
 
 def delta_removal(G, delta):
@@ -100,7 +102,8 @@ def combinatorial_algorithm(G, k, patients, delta=0.8, prob=False):
     return C, P_C
 
 def score_cover(patients, l_v):
-	len(set_cover(patients, l_v))
+    s=len(set_cover(patients, l_v))
+    return s
 def enumerating_algorithm(G, k, patients, delta=0.8, prob=False):
     G = delta_removal(G, delta)
 
@@ -112,10 +115,12 @@ def enumerating_algorithm(G, k, patients, delta=0.8, prob=False):
 
     parametri={}
     parametri['k']=k
+    parametri['soglia']=100 #per ora non usata
     parametri['pazienti']=patients
     parametri['funzioneLimite']=calcoloFunzioneLimiteSimple
-    parametri['scoringFunction']=obj_func
+    parametri['scoringFunction']=score_cover
     
     bestSolution,bestScore=BDDE(G, parametri)
     print(bestSolution)
     print(bestScore)
+    return (bestSolution,bestScore)  
