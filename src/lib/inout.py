@@ -142,7 +142,7 @@ def read_genes(filename):
 
 
 def load_network(filename):
-    file  = open(filename, "r")
+    file = open(filename, "r")
     G=nx.Graph()
     lines=file.readlines()
     for l in lines:

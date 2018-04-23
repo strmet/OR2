@@ -16,18 +16,21 @@ import getpass
             (sì, la repository nel nostro spazio dei è necessaria)
             tl; dr: clonare la repository dentro la 'home' del nostro spazio sul DEI.
     
-    (2)     Se non l'hai già fatto, scarica networkx dal sito (zip) ed estrai la cartella nella tua home.
+    (2)     Se non l'hai già fatto, esegui:
+            >>> pip install --user networkx
+            
+            Per installare le librerie a noi necessarie
 '''
 
 # Parametri per l'esecuzione
 
 # input files
-proteinsin = "../data/hint+hi2012_index_file.txt"
-samplesin = "../data/snvs.tsv"
-genesin = "../data/hint+hi2012_edge_file.txt"
-prob = [True, False]  # Probabilistic version of the problem or not?
-strategy = ['combinatorial', 'enumerate']  # Do we want to use the enumerate approach or the combinatorial one?
-ks = [2,3,4,5,6,7,8,9,10]  # On which ks do we want to test our algorithm?
+proteinsin = "../../data/hint+hi2012_index_file.txt"
+samplesin = "../../data/snvs.tsv"
+genesin = "../../data/hint+hi2012_edge_file.txt"
+probs = [False]  # Probabilistic version of the problem or not?
+strategy = ['combinatorial']  # Do we want to use the enumerate approach or the combinatorial one?
+ks = [2,3,4,5]  # On which ks do we want to test our algorithm?
 delta = 0.8  # for now, delta doesn't really matter to the analysis
 time_out = 604800  # for now, for each execution, we're willing to wait 7 days per run, maximum
 
@@ -82,8 +85,7 @@ files = ['src/main.py', 'src/lib/core.py', 'src/lib/inout.py']
 # Create a local file that will be sent to the server (the infamous '.job' file)
 with open("commands.job", "w") as fp:
     fp.write("#!/bin/bash \n")
-    #fp.write("export PYTHONPATH=$PYTHONPATH:/nfsd/opt/CPLEX12.6/cplex/python/3.4/x86-64_linux/ \n")
-    fp.write("export PYTHONPATH=$PYTHONPATH:$HOME/networkx/ \n")
+    fp.write("pip3 install --user networkx \n")
     for k in ks:
         for p in probs:
 
@@ -106,7 +108,7 @@ with open("commands.job", "w") as fp:
             # instruction += " --timeout 600 " + str(time_out)
 
             # Saving the output to a log file:
-            output_logfilename = 'k='+str(k) + '_' + 'delta='+str(d)
+            output_logfilename = 'k='+str(k) + '_' + 'delta='+str(delta)
             instruction += ' > ' + remote_path + "out/" + current_folder +'/'+ output_logfilename + '_results.log'
             instruction += '\n'
             fp.write(instruction)
