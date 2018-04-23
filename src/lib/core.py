@@ -42,9 +42,9 @@ def prob_cover(patients, l_v):
         for i in l_v:
             if i in patients[j]:
                 prod*=1.0-patients[i][j]
-        som+=1-prod
+        som+=prod
 
-    return som
+    return len(patients) - som
 
 
 def combinatorial_algorithm(G, k, patients, delta=0.8, prob=False):
@@ -66,14 +66,14 @@ def combinatorial_algorithm(G, k, patients, delta=0.8, prob=False):
         C_v = {v}
         P_C_v = cover(patients, C_v)  # no need to compute this \foreach u
 
-        p_v = {u: nx.shortest_path(G, v, u) for u in G.nodes() if u is not v}
+        p_v = {u: set(nx.shortest_path(G, v, u)) for u in G.nodes() if u is not v}
 
         while len(C_v) < k:
             maximum = -1
             l_v_max = set()
 
             for u in G.nodes() - C_v:  # "-" is an overloaded operator, it means 'difference'
-                l_v = set(p_v[u])
+                l_v = p_v[u]
 
                 if len(l_v | C_v) <= k:  # "|" is an overloaded operator, it means 'union'
                     P_v = cover(patients, l_v)
@@ -83,7 +83,7 @@ def combinatorial_algorithm(G, k, patients, delta=0.8, prob=False):
                         maximum = s
                         l_v_max = l_v
             C_v = C_v | l_v_max
-            P_C_v = cover(patients, C_v)  # no need to compute this \foreach u
+            P_C_v = cover(patients, C_v)
 
         if better(P_C_v,P_C):  # if we've found a better solution, update it and let us know
             C = C_v
@@ -99,8 +99,11 @@ def combinatorial_algorithm(G, k, patients, delta=0.8, prob=False):
 
     return C, P_C
 
+
 def score_cover(patients, l_v):
-	len(set_cover(patients, l_v))
+    len(set_cover(patients, l_v))
+
+
 def enumerating_algorithm(G, k, patients, delta=0.8, prob=False):
     G = delta_removal(G, delta)
 

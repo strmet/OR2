@@ -39,9 +39,9 @@ def BDDE(G,param=None):
             leafs=[]
             radice=None
             for n in B:
-                if(B.out_degree(n)==0):#allora è una foglia
+                if(B.out_degree(n)==0):#allora ï¿½ una foglia
                     leafs.append(n)
-                if(B.in_degree(n)==0):#allora è la radice
+                if(B.in_degree(n)==0):#allora ï¿½ la radice
                     radice=n
             for n in leafs:
                 #trovo ramo che parte dalla radice e va fino alla foglia
@@ -149,7 +149,7 @@ def parametriDefault():
     parametri['funzioneLimite']=calcoloFunzioneLimiteSimple
     return parametri
 #Nota:i dati del nodo rappresenta l'etichetta del vertice
-#tale etichetta può essere qualsiasi cosa inclusi stringhe e numeri
+#tale etichetta puï¿½ essere qualsiasi cosa inclusi stringhe e numeri
 class Nodo(object):
     def __init__(self,data):
         self.data=data
