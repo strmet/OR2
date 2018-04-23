@@ -1,24 +1,16 @@
 import networkx as nx
 
-import pandas as pd
-import matplotlib
-import numpy as np
-import matplotlib.pyplot as plt
-from core import *
-from inout import *
-
-
 def BDDE(G,param=None):
     global parametri
-    if(param!=None):
-        parametri=param
-    else:
-        parametri=parametriDefault()
-    ListaNodi=list(G.nodes)[0]  # solo il primo per testing
-
+    parametri=param
+    ListaNodi=list(G.nodes)
     bestSolution=[] 
     bestScore=0
+    print("size:"+str(len(ListaNodi)))
+    cont=0
     for v in ListaNodi:
+        cont+=1
+        print(str(cont)+ "  ID:"+str(v))
         radice=v
         parametri['radice']=radice
         B=nx.DiGraph()
@@ -27,12 +19,6 @@ def BDDE(G,param=None):
         DEPTH(G,[],v,[])
         G.remove_node(v)
         
-        print(B.nodes)
-        print(B.edges)
-        nx.draw(B,with_labels=True,font_weight="bold",arrow=False)
-        plt.show()
-        input()
-
         #Esamino albero binomiale ricavato da sopra
         if(len(B)!=0):
            
@@ -43,22 +29,20 @@ def BDDE(G,param=None):
                     leafs.append(n)
                 if(B.in_degree(n)==0):#allora � la radice
                     radice=n
+            print("nfoglie: "+str(len(leafs)))
             for n in leafs:
                 #trovo ramo che parte dalla radice e va fino alla foglia
                 #corrisponde al sottografo connesso che vogliamo esaminare
-                Percorso=nx.shortest_path(B,radice,n)
-                
-                print(Percorso)
+                Percorso=list(nx.shortest_path(B,radice,n))
+                Percorso=[node.data for node in Percorso ]
                 score=parametri['scoringFunction'](parametri['pazienti'],Percorso)
-                if(score>bestScore):
+                #print( str(Percorso))
+                #print(score)
+                if(score>bestScore and len(Percorso)==parametri['k']):
+                    print("Best solution updated!")
+                    print( str(Percorso)+" -> "+str(score))
                     bestScore=score
-                    BestSolution=Percorso
-                """
-                subgraphs_score = {subgraph: obj_func(patients, subgraph) for subgraph in subgraphs}
-                max_covering_subgraph = max(subgraphs_score, key=lambda subgraph: subgraphs_score[subgraph])
-                return max_covering_subgraph, subgraphs_score[max_covering_subgraph]
-                """
-                
+                    bestSolution=Percorso
     return (bestSolution,bestScore)    
         
 def BREADTH(G,S,n,U):
@@ -119,8 +103,7 @@ def getNodesFromBranch(n):
 
 def boundFunction(S):
     
-    return parametri['funzioneLimite'](parametri['matriceBinaria'],
-                                parametri['pazienti'],S,parametri['k'],
+    return parametri['funzioneLimite'](parametri['pazienti'],S,parametri['k'],
                                 parametri['soglia']
                                 )
 def getxn(G,S,v):
@@ -135,7 +118,7 @@ def getxn(G,S,v):
             L.remove_nodes_from(G.neighbors(n))
     return list(L.nodes())
 
-def calcoloFunzioneLimiteSimple(matriceBinaria,pazienti,S,k,soglia):
+def calcoloFunzioneLimiteSimple(pazienti,S,k,soglia):
     if(len(S)>k):
         return False
     return True
@@ -157,3 +140,4 @@ class Nodo(object):
         return str(self.data)
     def __repr__(self):
         return str(self) 
+
