@@ -43,7 +43,7 @@ class BDDE:
                         root=n
 
                 for n in leafs:
-                    path_to_leaf\=list(nx.shortest_path(B,root,n))
+                    path_to_leaf=list(nx.shortest_path(B,root,n))
                     path_to_leaf=[node.data for node in path_to_leaf ]
                     score=self.scoring_function(path_to_leaf)
 
