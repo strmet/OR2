@@ -24,13 +24,13 @@ def main():
 
     # Starts the CPLEX/DOCPLEX solver
     print("Solving...")
-    inst.solve()
+    inst.exact_solve()
 
     # Writing our solution inside a '.sol' file
     #inst.write_solutions()
 
     # Plotting our solution
-    inst.plot_solution(show=False, high=True, export=True)
+    inst.plot_solution(high=True)
 
 
 if __name__ == "__main__":

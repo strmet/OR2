@@ -17,7 +17,8 @@ class LazyCallback(LazyConstraintCallback):
 
         start = time.time()
 
-        if self.sum_time > self.inital_wait_time and self.initial_wait_time is not None:
+        if time.time() - self.start_time > self.initial_wait_time:
+
             # Get solution to build cuts
             sol = [self.EdgeSol(self.ypos(i, j), i, j)
                        for i in range(self.n_nodes)
@@ -35,9 +36,10 @@ class LazyCallback(LazyConstraintCallback):
                         rhs=1.0
                     )
 
-        # Restore full parallelism
-        self.model.parameters.threads.set(multiprocessing.cpu_count())
-
         # Print time spent on callbacks
         end = time.time()
         self.sum_time += end - start
+
+        # Restore full parallelism
+        self.model.parameters.threads.set(multiprocessing.cpu_count())
+

@@ -1,6 +1,9 @@
 """
+
 Everything related to the instance of our problem is written in here.
+
 """
+
 try:
     from docplex.mp.model import Model
     import plotly.offline as py
@@ -29,7 +32,9 @@ class ParseWarning(UserWarning):
 
 
 class WindFarm:
+
     """
+
     py:class:: instance()
 
     This class stores all the useful information about input data and parameters
@@ -38,6 +43,7 @@ class WindFarm:
 
     # Class constructor
     def __init__(self, dataset_selection=1):
+
         # The model itself
         self.__model = None
 
@@ -69,8 +75,6 @@ class WindFarm:
         self.__Cable = namedtuple("Cable", ["capacity", "price", "max_usage"])
 
         # Operating parameters, commenting out whatever we don't use
-        # self.model_type (???)
-        # self.num_threads
         self.__project_path = ''
         self.cluster = False
         self.time_limit = 60
@@ -81,23 +85,20 @@ class WindFarm:
         self.__debug_mode = False
         self.verbosity = 0
         self.__interface = 'cplex'
-        # available_memory
-        # self.max_nodes
-        # self.cutoff
-        # self.integer_costs
 
         # Dataset selection and consequent input files building, and output parameters
         self.data_select = dataset_selection
+
         # Building the input/output files, while parsing the command line.
         self.__build_input_files()
         self.__build_name()
         self.out_dir_name = 'test'
 
-
     # Private methods, internal to our class:
     def __read_turbines_file(self):
 
         """
+
         py:function:: read_turbines_file(self)
 
         Read the turbines file
@@ -123,6 +124,7 @@ class WindFarm:
     def __read_cables_file(self):
 
         """
+
         py:function:: read_cables_file(self)
 
         Read the cables file
@@ -142,16 +144,19 @@ class WindFarm:
         self.__cables = cables
 
     def __fpos(self, i_off, j_off):
+
         """
 
         :param i_off:
         :param j_off:
         :return:
+
         """
 
         return self.__f_start + i_off*self.__n_nodes + j_off
 
     def __xpos(self, i_off, j_off, k_off):
+
         """
         .. description missing ..
         :param i_off:
@@ -163,11 +168,13 @@ class WindFarm:
         return self.__x_start + i_off*self.__n_nodes*self.__n_cables + j_off*self.__n_cables + k_off
 
     def __ypos(self, i_off, j_off):
+
         """
 
         :param i_off:
         :param j_off:
         :return:
+
         """
 
         return self.__y_start + i_off*self.__n_nodes + j_off
@@ -182,6 +189,7 @@ class WindFarm:
         :param slack_off: Offset w.r.t slackstart and the substation indexed by h
 
         """
+
         return self.__slack_start + slack_off
 
     def __build_model_cplex(self):
@@ -387,10 +395,13 @@ class WindFarm:
     def __build_model_docplex(self):
 
         """
+
         Build the model using docplex API
 
         :return: None
+
         """
+
         if not self.__interface == 'docplex':
             raise NameError("For some reason the docplex model has been called when " +
                             "the 'interface' variable has been set to: " + self.__interface)
@@ -557,7 +568,9 @@ class WindFarm:
         self.__model.export_as_lp(path = self.__project_path+"/out/"+self.out_dir_name+"/lpmodel.lp")
 
     def __get_solution(self, var='x'):
+
         """
+
         Reads the solution from CPLEX or DOCPLEX and stores it in three appropriate lists.
         (recall that a selected solution is a variable set to '1').
 
@@ -572,6 +585,7 @@ class WindFarm:
 
         :param var: Default = 'x'. May be set to 'x', 'y' or 'f'.
         :return: The corresponding solution list.
+
         """
 
         if self.__interface == 'cplex':
@@ -588,7 +602,7 @@ class WindFarm:
             raise ValueError("Unknown interface. I've got: " + str(self.__interface))
 
         if var == 'x':
-            sol = [self.__CableSol(self.__xpos(i, j, k), i + 1, j + 1, k + 1)
+            sol = [self.__CableSol(self.__xpos(i, j, k), i, j, k) # Perchè k + 1?
                    for i in range(self.__n_nodes)
                    for j in range(self.__n_nodes)
                    for k in range(self.__n_cables)
@@ -609,12 +623,15 @@ class WindFarm:
         return sol
 
     def __build_input_files(self):
+
         """
+
         py:function:: __build_input_files(self)
 
         Sets the input file correctly, based on the dataset selection
 
         """
+
         if not type(self.data_select) == int:
             raise TypeError("Expecting an integer value representing the dataset. Given: " + str(self.data_select))
         if self.data_select <= 0 or self.data_select >= 32:
@@ -645,6 +662,7 @@ class WindFarm:
 
     def __build_name(self):
         """
+
         py:function:: __build_name(self)
 
         Sets the name of the wind farm correctly, based on the dataset selection
@@ -677,9 +695,10 @@ class WindFarm:
 
         self.__name = "Wind Farm 0" + str(wf_number)
 
-    def __plot_high_quality(self, edges, show=False, export=False):
+    def __plot_high_quality(self, edges):
 
         """
+
         py:function:: plot_high_quality(inst, edges)
 
         Plot the solution using standard libraries
@@ -701,7 +720,7 @@ class WindFarm:
             G.add_node(index)
 
         for edge in edges:
-            G.add_edge(edge.s - 1, edge.d - 1)
+            G.add_edge(edge.s, edge.d)
 
         pos = {i: (point.x, point.y) for i, point in enumerate(self.__points)}
 
@@ -712,20 +731,22 @@ class WindFarm:
         nx.draw(G, pos, with_labels=True, node_size=1300, alpha=0.3, arrows=True, labels=mapping, node_color='g',
                 linewidth=10)
 
-        if export:
-            plt.savefig(self.__project_path + '/out/' + self.out_dir_name + '/img/foo.svg')
+        #if export:
+        #    plt.savefig(self.__project_path + '/out/' + self.out_dir_name + '/img/foo.svg')
 
-        # show graph
-        if show:
-            plt.show()
+
+        plt.show()
 
     def __get_violated_edges(self, selected_edges):
 
         """
-            When called, this function returns a list of violations, which are a list of y_pos indexes,
-            ready to be added to CPLEX or DOCPLEX.
+
+        When called, this function returns a list of violations, which are a list of y_pos indexes,
+        ready to be added to CPLEX or DOCPLEX.
+
         :return:    [list_1, ..., list2_m], where each list_i is a list:
                     [idx_1, ..., idx_m], where idx_i = y_pos(some_turb, some_other_turb)
+
         """
 
         constraints_to_be_added = []
@@ -754,12 +775,15 @@ class WindFarm:
         return constraints_to_be_added
 
     def __add_violating_constraint(self, crossings):
+
         """
+
         Adds the violating constraint by index.
         Crossings contains the index of every edge variable to be added.
 
         :param crossings: a list [idx_1, ..., idx_n] where idx_i are the indexes of the conflicting edges
         :return: None
+
         """
 
         if self.cross_mode == 'lazy':
@@ -782,11 +806,13 @@ class WindFarm:
     def parse_command_line(self):
 
         """
+
         py:function:: parse_command_line(self)
 
         Parses the command line.
 
         :return: None
+
         """
 
         parser = argparse.ArgumentParser(description='Process details about instance and interface.')
@@ -850,9 +876,12 @@ class WindFarm:
         self.__build_name()
 
     def build_model(self):
+
         """
+
         Builds the model with the right interface.
         Raise an error if the specified interface doesn't exist.
+
         """
 
         if self.__interface == 'cplex':
@@ -864,9 +893,12 @@ class WindFarm:
                              "Either 'docplex' or 'cplex' are valid options; given: " +
                              str(self.__interface))
 
-    def solve(self):
+    def exact_solve(self):
+
         """
+
         Simply solves the problem by invoking the .solve() method within the model selected.
+
         """
 
         if self.cross_mode == 'callback':
@@ -883,8 +915,9 @@ class WindFarm:
             lazycb.EdgeSol = self.__EdgeSol
             lazycb.start_time = time.time()
             lazycb.sum_time = 0
-            lazycb.initial_wait_time = None
+            lazycb.initial_wait_time = 0
             lazycb.n_cables = self.__n_cables
+            lazycb.model = self.__model
 
             self.__model.solve()
         elif self.cross_mode == 'lazy' or self.cross_mode == 'no':
@@ -901,7 +934,7 @@ class WindFarm:
 
             while (xs or not opt) and current_time-starting_time < 600:
                 self.__model.solve()
-                self.plot_solution(edges=self.__get_solution(var='x'), show=True, high=True)
+                self.plot_solution(edges=self.__get_solution(var='x'), high=True)
 
                 violations = self.__get_violated_edges(self.__get_solution(var='y'))
 
@@ -918,41 +951,56 @@ class WindFarm:
                     opt = True
 
                 current_time = time.time()
-            self.plot_solution(edges=self.__get_solution(var='x'), show=True, high=True)
+            self.plot_solution(edges=self.__get_solution(var='x'), high=True)
         else:
             raise ValueError("Unrecognized cross-strategy; given: " + str(self.cross_mode))
 
+
+    def hard_fix(self):
+        return 0
+
+
     def write_solutions(self):
+
         """
+
         Writes the solutions obtained by first invoking the built-in function of the model,
         and then by returning our private __get_solution() method, which returns the list of the
         x_{ij}^k variables set to one.
         :return: the list of x_{ij}^k variables set to one from the solution
+
         """
 
         self.__model.solution.write(self.__project_path + "/out/" + self.out_dir_name + "/mysol.sol")
         return self.__get_solution()
 
     def read_input(self):
+
         """
+
         This function reads the input files by invoking the private methods which read
         both the turbines and the cables files.
 
         :return: None
+
         """
 
         self.__read_turbines_file()
         self.__read_cables_file()
 
-    def plot_solution(self, edges=None, show=False, high=False, export=False):
+    def plot_solution(self, edges=None, high=False):
+
         """
+
         py:function:: plot_solution(inst, edges)
         Plots the solution using the plot.ly library
 
         :param show: if =True, the exported plot will be shown right away.
+        :param edges: list of edges to be plotted
         :param high: if =True, an high-quality img will be plotted, also
         :param export: if =True, such high-quality img will be exported
-        :return:
+        :return: None
+
         """
         if edges is None:
             edges = self.__get_solution(var='x')
@@ -963,12 +1011,12 @@ class WindFarm:
             G.add_node(index, pos=(node.x, node.y))
 
         for edge in edges:
-            G.add_edge(edge.s - 1, edge.d - 1, weight=edge.capacity)
+            G.add_edge(edge.s, edge.d, weight=edge.capacity)
 
         edge_trace = Scatter(
             x=[],
             y=[],
-            line=Line(width=1, color='#888'),
+            line=Line(width=0.5, color='#888'),
             hoverinfo='none',
             mode='lines'
         )
@@ -1003,7 +1051,6 @@ class WindFarm:
             node_trace['marker']['color'].append("#32CD32")
 
         # Create figure
-
         fig = Figure(data=Data(
             [edge_trace, node_trace]),
             layout=Layout(
@@ -1020,7 +1067,8 @@ class WindFarm:
         py.plot(fig, filename=self.__project_path + '/out/' + self.out_dir_name + '/img/wind_farm.html')
 
         if high:
-            self.__plot_high_quality(edges = self.__get_solution(), show=show, export=export)
+            self.__plot_high_quality(edges=self.__get_solution(var='x'))
+
 
     @staticmethod
     def get_distance(point1, point2):
