@@ -17,6 +17,7 @@ import argparse
 import cplex
 import math
 from collections import namedtuple
+import multiprocessing
 from .callback import LazyCallback
 
 class ValueWarning(UserWarning):
@@ -49,6 +50,7 @@ class WindFarm:
         self.__points = []
         self.__cables = []
         self.c = 10
+        self.y_ij_vars = None
 
         # Data counters
         self.__n_nodes = 0
@@ -202,7 +204,7 @@ class WindFarm:
 
         # Add y(i,j) variables
         self.__y_start = self.__model.variables.get_num()
-        self.__model.variables.add(
+        self.y_ij_vars =self.__model.variables.add(
             types=[self.__model.variables.type.binary]
                   * (self.__n_nodes**2),
             names=["y({0},{1})".format(i+1, j+1)
@@ -585,24 +587,24 @@ class WindFarm:
         else:
             raise ValueError("Unknown interface. I've got: " + str(self.__interface))
 
-        if var=='x':
-            sol = [self.__CableSol(self.__xpos(i,j,k),i+1,j+1,k+1)
+        if var == 'x':
+            sol = [self.__CableSol(self.__xpos(i, j, k), i + 1, j + 1, k + 1)
                    for i in range(self.__n_nodes)
                    for j in range(self.__n_nodes)
                    for k in range(self.__n_cables)
-                   if get_value(xpos(i,j,k)) > 0.5]
-        elif var=='y':
-            sol = [self.__EdgeSol(self.__ypos(i,j), i, j)
+                   if get_value(xpos(i, j, k)) > 0.5]
+        elif var == 'y':
+            sol = [self.__EdgeSol(self.__ypos(i, j), i, j)
                    for i in range(self.__n_nodes)
                    for j in range(self.__n_nodes)
-                   if get_value(ypos(i,j)) > 0.5]
-        elif var=='f':
-            sol = [self.__FluxSol(self.__fpos(i,j), i, j)
+                   if get_value(ypos(i, j)) > 0.5]
+        elif var == 'f':
+            sol = [self.__FluxSol(self.__fpos(i, j), i, j)
                    for i in range(self.__n_nodes)
                    for j in range(self.__n_nodes)
-                   if get_value(fpos(i,j)) > 0.5]
+                   if get_value(fpos(i, j)) > 0.5]
         else:
-            raise ValueError("Invalid solution request. 'x', 'y' or 'f' are possible values, given "+str(var))
+            raise ValueError("Invalid solution request. 'x', 'y' or 'f' are possible values, given " + str(var))
 
         return sol
 
@@ -718,6 +720,7 @@ class WindFarm:
             plt.show()
 
     def __get_violated_edges(self, selected_edges):
+
         """
             When called, this function returns a list of violations, which are a list of y_pos indexes,
             ready to be added to CPLEX or DOCPLEX.
@@ -725,8 +728,8 @@ class WindFarm:
                     [idx_1, ..., idx_m], where idx_i = y_pos(some_turb, some_other_turb)
         """
 
-
         constraints_to_be_added = []
+
         for e1 in selected_edges:
             for k in range(self.__n_nodes):
                 # Get only the selected, out-going edges from the point indexed by k.
@@ -745,8 +748,8 @@ class WindFarm:
                                                             self.__points[e2.d])
                                    ]
                 if len(violating_edges) > 0:
-                    violating_edges = [e.idx for e in violating_edges]
-                    constraints_to_be_added.append([self.__ypos(e1.s, e1.d), self.__ypos(e1.d, e1.s)] + violating_edges)
+                    violating_edges = [e for e in violating_edges]
+                    constraints_to_be_added.append([self.__EdgeSol(self.__ypos(e1.s, e1.d), e1.s, e1.d), self.__EdgeSol(self.__ypos(e1.d, e1.s), e1.d, e1.s)] + violating_edges)
 
         return constraints_to_be_added
 
@@ -867,14 +870,21 @@ class WindFarm:
         """
 
         if self.cross_mode == 'callback':
+            # CPLEX disables parallelism, force it to the maximum number of cores available
+            self.__model.parameters.threads.set(multiprocessing.cpu_count())
+
+            # Install the callback
             lazycb = self.__model.register_callback(LazyCallback)
+
+            # Give some arguments and functions to the callback
             lazycb.n_nodes = self.__n_nodes
-            #lazycb.vars = self.__model.variables
+            lazycb.model = self.__model
             lazycb.get_violated_edges = self.__get_violated_edges
             lazycb.ypos = self.__ypos
             lazycb.EdgeSol = self.__EdgeSol
-            lazycb.plot = self.__plot_high_quality
-            lazycb.points = self.__points
+            lazycb.start_time = time.time()
+            lazycb.sum_time = 0
+            lazycb.n_cables = self.__n_cables
 
             self.__model.solve()
         elif self.cross_mode == 'lazy' or self.cross_mode == 'no':
@@ -891,7 +901,7 @@ class WindFarm:
 
             while (xs or not opt) and current_time-starting_time < 600:
                 self.__model.solve()
-                self.plot_solution(show=False, high=True, export=True)
+                self.plot_solution(edges=self.__get_solution(var='x'), show=True, high=True)
 
                 violations = self.__get_violated_edges(self.__get_solution(var='y'))
 
@@ -908,6 +918,7 @@ class WindFarm:
                     opt = True
 
                 current_time = time.time()
+            self.plot_solution(edges=self.__get_solution(var='x'), show=True, high=True)
         else:
             raise ValueError("Unrecognized cross-strategy; given: " + str(self.cross_mode))
 
@@ -933,7 +944,7 @@ class WindFarm:
         self.__read_turbines_file()
         self.__read_cables_file()
 
-    def plot_solution(self, show=False, high=False, export=False):
+    def plot_solution(self, edges=None, show=False, high=False, export=False):
         """
         py:function:: plot_solution(inst, edges)
         Plots the solution using the plot.ly library
@@ -943,8 +954,9 @@ class WindFarm:
         :param export: if =True, such high-quality img will be exported
         :return:
         """
+        if edges is None:
+            edges = self.__get_solution(var='x')
 
-        edges = self.__get_solution()
         G = nx.DiGraph()
 
         for index, node in enumerate(self.__points):
