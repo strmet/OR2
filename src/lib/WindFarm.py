@@ -878,12 +878,12 @@ class WindFarm:
 
             # Give some arguments and functions to the callback
             lazycb.n_nodes = self.__n_nodes
-            lazycb.model = self.__model
             lazycb.get_violated_edges = self.__get_violated_edges
             lazycb.ypos = self.__ypos
             lazycb.EdgeSol = self.__EdgeSol
             lazycb.start_time = time.time()
             lazycb.sum_time = 0
+            lazycb.initial_wait_time = None
             lazycb.n_cables = self.__n_cables
 
             self.__model.solve()
