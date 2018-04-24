@@ -164,7 +164,7 @@ def cardinality_bound(S,k,samples=None):
         return len(S)<=k
 
 
-def prob_cover(patients, l_v):
+def prob_cover(patients, l_v, min=False):
     som=0.0
 
     for j in patients:
@@ -172,10 +172,13 @@ def prob_cover(patients, l_v):
 
         for i in l_v:
             if i in patients[j]:
-                prod*=1.0-patients[i][j]
+                prod*=1.0-patients[j][i]
         som+=prod
 
-    return len(patients) - som
+    if min:
+        return som
+    else:
+        return len(patients) - som
 
 
 def combinatorial_algorithm(G, k, patients, delta=0.8, prob=False):

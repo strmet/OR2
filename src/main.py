@@ -11,7 +11,11 @@ def main():
     strategy = parameters['strategy']
     G = load_network(parameters['genesin'])
     id_to_str, str_to_id = read_genes(parameters['proteinsin'])
-    patients = read_patients(parameters['samplesin'], str_to_id)
+    if parameters['prob']:
+        pass #quello che mi hai passato
+    else:
+        patients = read_patients(parameters['samplesin'], str_to_id)
+
     t_start = time.time()
 
     if strategy == 'combinatorial':
