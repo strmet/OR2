@@ -29,7 +29,7 @@ proteinsin = "../../data/hint+hi2012_index_file.txt"
 samplesin = "../../data/snvs.tsv"
 genesin = "../../data/hint+hi2012_edge_file.txt"
 probs = [False]  # Probabilistic version of the problem or not?
-strategy = ['combinatorial']  # Do we want to use the enumerate approach or the combinatorial one?
+strategy = ['enumerate']  # Do we want to use the enumerate approach or the combinatorial one?
 ks = [2,3,4,5]  # On which ks do we want to test our algorithm?
 delta = 0.8  # for now, delta doesn't really matter to the analysis
 time_out = 604800  # for now, for each execution, we're willing to wait 7 days per run, maximum
@@ -88,30 +88,31 @@ with open("commands.job", "w") as fp:
     fp.write("pip3 install --user networkx \n")
     for k in ks:
         for p in probs:
+            for s in strategy:
 
-            # Formatting/constructing the instruction to be given:
-            instruction = "python3 "+ remote_path + "src/main.py"
+                # Formatting/constructing the instruction to be given:
+                instruction = "python3 "+ remote_path + "src/main.py"
 
-            # Options to be added:
-            instruction += " --k " + str(k)
-            instruction += " --delta " + str(delta)
-            if p:
-                instruction += " --prob "
-            instruction += " --proteinsin " + proteinsin
-            instruction += " --samplesin " + samplesin
-            instruction += " --genesin " + genesin
+                # Options to be added:
+                instruction += " --k " + str(k)
+                instruction += " --delta " + str(delta)
+                if p:
+                    instruction += " --prob "
+                instruction += " --proteinsin " + proteinsin
+                instruction += " --samplesin " + samplesin
+                instruction += " --genesin " + genesin
+                instruction += " --strategy " + s
+                # current outputfolder for now is not used in our code
+                # instruction += " --outfolder " + output_folder
 
-            # current outputfolder for now is not used in our code
-            # instruction += " --outfolder " + output_folder
+                # Timeout is not currently used in our code
+                # instruction += " --timeout 600 " + str(time_out)
 
-            # Timeout is not currently used in our code
-            # instruction += " --timeout 600 " + str(time_out)
-
-            # Saving the output to a log file:
-            output_logfilename = 'k='+str(k) + '_' + 'delta='+str(delta)
-            instruction += ' > ' + remote_path + "out/" + current_folder +'/'+ output_logfilename + '_results.log'
-            instruction += '\n'
-            fp.write(instruction)
+                # Saving the output to a log file:
+                output_logfilename = 'k='+str(k) + '_' + 'delta='+str(delta)
+                instruction += ' > ' + remote_path + "out/" + current_folder +'/'+ output_logfilename + '_results.log'
+                instruction += '\n'
+                fp.write(instruction)
 
 print("Copying files")
 for file in files:

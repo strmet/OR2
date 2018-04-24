@@ -150,3 +150,4 @@ def load_network(filename):
         s=[ int(ss) for ss in s]
         G.add_edge(s[0], s[1] ,weight=s[2])
     return G
+

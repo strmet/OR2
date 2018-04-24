@@ -1,6 +1,131 @@
 import networkx as nx
-from lib.enumerationBDDE import *
 
+
+class BDDE:
+    def __init__(self, G, samples, k=2, delta=0.8, f_bound=None, prob=False):
+        self.G = G
+        self.k = k
+        self.delta = delta
+        self.tree = nx.DiGraph()
+        self.root = 0
+        self.samples = samples
+        if f_bound is None:  # default = no boundings
+            self.bounding_function = lambda S: True
+        else:
+            self.bounding_function = lambda S: f_bound(S, self.k, self.samples)
+        if prob:
+            self.scoring_function = lambda subgraph: prob_cover(self.samples,subgraph)
+        else:
+            self.scoring_function = lambda subgraph: score_cover(self.samples,subgraph)
+        self.best_score = -1
+        self.best_subgraph = []
+
+    def enumeration_algorithm(self):
+
+        ListaNodi=list(self.G.nodes)
+        self.best_score = -1
+        self.best_subgraph = []
+        for v in ListaNodi:
+            radice=v
+            self.root=radice
+            B=nx.DiGraph()
+            self.tree=B
+            self.DEPTH([],v,[])
+            self.G.remove_node(v)
+
+            if len(B)>0:
+                leafs=[]
+                root=None
+                for n in B:
+                    if B.out_degree(n)==0:  # allora è una foglia
+                        leafs.append(n)
+                    if B.in_degree(n)==0:  # allora è la radice
+                        root=n
+
+                for n in leafs:
+                    path_to_leaf\=list(nx.shortest_path(B,root,n))
+                    path_to_leaf=[node.data for node in path_to_leaf ]
+                    score=self.scoring_function(path_to_leaf)
+
+                    if score>self.best_score and len(path_to_leaf)==self.k:
+                        self.best_score=score
+                        self.best_subgraph=path_to_leaf
+                        print("_________________")
+                        print()
+                        print("Best solution updated!")
+                        print("Current C (ids): ", self.best_subgraph)
+                        print("Current P_C (cardinality):", self.best_score)
+
+    def BREADTH(self, S,n,U):
+        vn=n.data
+        if vn in U:
+            return None
+
+        S1=S+[vn]
+        if not self.bounding_function(S1):
+            return None
+
+        B=self.tree
+        n1=Nodo(vn)
+        for nxx in self.getNodesFromBranch(n):
+            n2=self.BREADTH(S1,nxx,U)
+            if n2 is not None:
+                B.add_edge(n1,n2)
+        return n1
+
+    def DEPTH(self, S,v,beta):
+        S1=S+[v]
+        if not self.bounding_function(S1):
+            return None
+
+        n=Nodo(v)
+        beta1=[]
+
+        xn=self.getxn(S,v)
+        xn.sort(reverse=True)
+        B=self.tree
+        for i in range(0,len(beta),1):
+            n1=self.BREADTH(S1,beta[i],xn)
+            if n1 is not None:
+                B.add_edge(n,n1)
+                beta1.append(n1)
+        for v in xn:
+            n1=self.DEPTH(S1,v,beta1)
+            if n1 is not None:
+                B.add_edge(n,n1)
+                beta1.append(n1)
+        return n
+
+    def getNodesFromBranch(self, n):
+        B=self.tree
+        W=[]
+        neighbors=B.neighbors(n)
+        for v in neighbors:
+            if B.has_edge(n,v):
+                W.append(v)
+        return W
+
+    def getxn(self, S,v):
+        neighbors=self.G.neighbors(v)
+        L=nx.Graph()
+        L.add_nodes_from(neighbors)
+
+        if self.root in L:
+            L.remove_node(self.root)
+        for n in S:
+            L.remove_nodes_from(self.G.neighbors(n))
+        return list(L.nodes())
+
+
+class Nodo(object):
+    def __init__(self,data):
+        self.data=data
+
+    def __str__(self):
+        return str(self.data)
+
+    def __repr__(self):
+        return str(self)
 
 
 def delta_removal(G, delta):
@@ -33,6 +158,10 @@ def genes_in_sample(l_v, genes_list):
         if v in genes_list:
             return True
     return False
+
+
+def cardinality_bound(S,k,samples=None):
+        return len(S)<=k
 
 
 def prob_cover(patients, l_v):
@@ -103,26 +232,7 @@ def combinatorial_algorithm(G, k, patients, delta=0.8, prob=False):
 
 
 def score_cover(patients, l_v):
-    len(set_cover(patients, l_v))
-
-
-def enumerating_algorithm(G, k, patients, delta=0.8, prob=False):
-    G = delta_removal(G, delta)
-
-    if prob:
-        obj_func = prob_cover
-    else:
-        obj_func = score_cover
-
-
-    parametri={}
-    parametri['k']=k
-    parametri['soglia']=100 #per ora non usata
-    parametri['pazienti']=patients
-    parametri['funzioneLimite']=calcoloFunzioneLimiteSimple
-    parametri['scoringFunction']=score_cover
-    
-    bestSolution,bestScore=BDDE(G, parametri)
-    print(bestSolution)
-    print(bestScore)
-    return bestSolution,bestScore
+    return len([
+        p for p in patients
+        if genes_in_sample(l_v, patients[p])
+    ])

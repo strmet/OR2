@@ -16,19 +16,26 @@ def main():
 
     if strategy == 'combinatorial':
         C, P_C = combinatorial_algorithm(G,k,patients, prob=parameters['prob'])
-    #elif strategy == 'enumerate':
-    #    C, P_C = enumerating_algorithm(G,k,patients, prob=parameters['prob'])
-    #else:
-    #    raise ValueError("Unkown strategy given. Input: " + str(strategy))
+    elif strategy == 'enumerate':
+        BDDE_instance = BDDE(G, patients, f_bound=cardinality_bound, k=k)
+        BDDE_instance.enumeration_algorithm()
+        C = BDDE_instance.best_subgraph
+        P_C = BDDE_instance.best_score
+    else:
+        raise ValueError("Unkown strategy given. Input: " + str(strategy))
     t_end = time.time()
 
     print("_________________")
     print("Final solution (ids): ", C)
     print("Final solution (genes' names): ", [id_to_str[el] for el in C])
-    print("Final solution cardinality: ", len(P_C))
+    if parameters['prob'] or strategy=='enumerate':
+        print("Final solution cardinality: ", P_C)
+    else:
+        print("Final solution cardinality: ", len(P_C))
     print("Elapsed time: ", time.strftime("%H:%M:%S", time.gmtime(t_end-t_start)))
     print("_________________")
 
 
 if __name__ == "__main__":
     main()
+
