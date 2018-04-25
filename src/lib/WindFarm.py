@@ -22,6 +22,7 @@ import math
 from collections import namedtuple
 import multiprocessing
 from .callback import LazyCallback
+import random
 
 class ValueWarning(UserWarning):
     pass
@@ -85,6 +86,8 @@ class WindFarm:
         self.__debug_mode = False
         self.verbosity = 0
         self.__interface = 'cplex'
+        self.metaheuristic = None
+        self.__initial_wait_time = 0
 
         # Dataset selection and consequent input files building, and output parameters
         self.data_select = dataset_selection
@@ -595,9 +598,9 @@ class WindFarm:
             fpos = self.__fpos
         elif self.__interface == 'docplex':
             get_value = self.__model.solution.get_value
-            xpos = lambda i,j,k:  self.__model.get_var_by_index(self.__xpos(i,j,k))
-            ypos = lambda i,j:  self.__model.get_var_by_index(self.__ypos(i,j))
-            fpos = lambda i,j:  self.__model.get_var_by_index(self.__fpos(i,j))
+            xpos = lambda i, j, k:  self.__model.get_var_by_index(self.__xpos(i, j, k))
+            ypos = lambda i, j:  self.__model.get_var_by_index(self.__ypos(i, j))
+            fpos = lambda i, j:  self.__model.get_var_by_index(self.__fpos(i, j))
         else:
             raise ValueError("Unknown interface. I've got: " + str(self.__interface))
 
@@ -744,6 +747,7 @@ class WindFarm:
         When called, this function returns a list of violations, which are a list of y_pos indexes,
         ready to be added to CPLEX or DOCPLEX.
 
+        :param selected_edges:
         :return:    [list_1, ..., list2_m], where each list_i is a list:
                     [idx_1, ..., idx_m], where idx_i = y_pos(some_turb, some_other_turb)
 
@@ -774,6 +778,30 @@ class WindFarm:
 
         return constraints_to_be_added
 
+    def __reduce_metaheuristic_iteration(self, edge_ab):
+
+        """
+
+        :param edge_ab: The edge selected by the metaheuristic algorithm
+        :return: List of EdgeSol => all the violations through edge_ab
+
+        """
+
+        full_graph = [self.__EdgeSol(self.__ypos(i, j), i, j)
+                      for i in range(self.__n_nodes)
+                      for j in range(self.__n_nodes)]
+
+        filtered_edges = [edge_cd for edge_cd in full_graph
+                          if not (edge_cd.s == edge_ab.s or edge_cd.d == edge_ab.s or edge_cd.s == edge_ab.d or edge_cd.d == edge_ab.d)]
+
+        violations = [edge_cd for edge_cd in filtered_edges
+                      if WindFarm.are_crossing(self.__points[edge_ab.s],
+                                               self.__points[edge_ab.d],
+                                               self.__points[edge_cd.s],
+                                               self.__points[edge_cd.d])]
+
+        return violations
+
     def __add_violating_constraint(self, crossings):
 
         """
@@ -790,6 +818,8 @@ class WindFarm:
             constraint_add = self.__model.linear_constraints.advanced.add_lazy_constraints
         else:
             constraint_add = self.__model.linear_constraints.add
+
+        crossings = [cross.idx for cross in crossings]
 
         if len(crossings) > 0:
             coefficients = [1] * len(crossings)
@@ -831,6 +861,10 @@ class WindFarm:
                             help='type --noslack if you do not want the soft version of the problem')
         parser.add_argument('--crossings', choices=['no', 'lazy', 'loop', 'callback'],
                             help='Choose how you want to address the crossing problem')
+        parser.add_argument('--metaheuristic', choices=['hard'],
+                            help='Choose one metaheuristic method to wrap the execution')
+        parser.add_argument('--initial_wait_time', type=int,
+                            help='Initial wait time for callbacks. If callback-mode is not true, it is ignored')
 
         args = parser.parse_args()
 
@@ -872,6 +906,12 @@ class WindFarm:
         if args.crossings:
             self.cross_mode = args.crossings
 
+        if args.metaheuristic:
+            self.metaheuristic = args.metaheuristic
+
+        if args.initial_wait_time:
+            self.__initial_wait_time = args.initial_wait_time
+
         self.__build_input_files()
         self.__build_name()
 
@@ -886,14 +926,16 @@ class WindFarm:
 
         if self.__interface == 'cplex':
             self.__build_model_cplex()
+
         elif self.__interface == 'docplex':
             self.__build_model_docplex()
+
         else:
             raise ValueError("The given interface isn't a valid option." +
                              "Either 'docplex' or 'cplex' are valid options; given: " +
                              str(self.__interface))
 
-    def exact_solve(self):
+    def __exact_solve(self):
 
         """
 
@@ -915,14 +957,16 @@ class WindFarm:
             lazycb.EdgeSol = self.__EdgeSol
             lazycb.start_time = time.time()
             lazycb.sum_time = 0
-            lazycb.initial_wait_time = 0
+            lazycb.initial_wait_time = self.__initial_wait_time
             lazycb.n_cables = self.__n_cables
             lazycb.model = self.__model
 
             self.__model.solve()
+
         elif self.cross_mode == 'lazy' or self.cross_mode == 'no':
             # This simply means that CPLEX has everything he needs to have inside his enviroment
             self.__model.solve()
+
         elif self.cross_mode == 'loop':
             xs = True       # "are there any crosses in this solution?"
             opt = False     # "has the optimum been reached?"
@@ -932,9 +976,9 @@ class WindFarm:
             for i in range(3):
                 self.__model.solve()
 
-            while (xs or not opt) and current_time-starting_time < 600:
+            while (xs or not opt) and time.time() - starting_time < 890:
                 self.__model.solve()
-                self.plot_solution(edges=self.__get_solution(var='x'), high=True)
+                self.plot_solution(edges=self.__get_solution(var='x'), high=False)
 
                 violations = self.__get_violated_edges(self.__get_solution(var='y'))
 
@@ -950,15 +994,60 @@ class WindFarm:
                 if self.__model.solution.get_status() == self.__model.solution.status.MIP_optimal:
                     opt = True
 
-                current_time = time.time()
-            self.plot_solution(edges=self.__get_solution(var='x'), high=True)
         else:
             raise ValueError("Unrecognized cross-strategy; given: " + str(self.cross_mode))
 
+    def __hard_fix(self):
+        optimum = False     # "has the optimum been reached?"
+        starting_time = time.time()
+        probability = 0.8
+        initial_best_bound = 0
 
-    def hard_fix(self):
-        return 0
+        for i in range(3):
+            self.__exact_solve()
+            if i == 2:
+                initial_best_bound = 0 # TODO
 
+
+        while not optimum and time.time() - starting_time < 1200:
+
+            sol = self.__get_solution(var='y')
+            self.plot_solution(self.__get_solution(var='x'))
+
+            for edge in sol:
+                if random.random() > probability:
+
+                    self.__model.variables.set_lower_bounds(
+                        edge.idx,
+                        1
+                    )
+
+                    violations = self.__reduce_metaheuristic_iteration(edge)
+
+                    for violation in violations:
+                        self.__model.variables.set_upper_bounds(
+                            violation.idx,
+                            0
+                        )
+
+            self.__exact_solve()
+
+            if self.__model.solution.get_status() == self.__model.solution.status.MIP_optimal:
+                optimum = True
+
+            if self.__best_incumbent > self.__model.solution.get_objective_value():
+                self.__best_sol = self.__get_solution()
+                self.__best_incumbent = self.__model.solution.get_objective_value()
+
+            probability -= 0.05
+            probability = max(probability, 0.5)
+        #self.plot_solution(self.__get_solution(var='x'))
+
+    def solve(self):
+        if self.metaheuristic is None:
+            self.__exact_solve()
+        elif self.metaheuristic == 'hard':
+            self.__hard_fix()
 
     def write_solutions(self):
 

@@ -14,23 +14,23 @@ def main():
         - build the output folders
     """
 
-    inst = WindFarm(dataset_selection=1)
+    wf = WindFarm(dataset_selection=1)
     # Reads the turbines and the cables file
-    inst.parse_command_line()
-    inst.read_input()
+    wf.parse_command_line()
+    wf.read_input()
 
     # Builds the model with such
-    inst.build_model()
+    wf.build_model()
 
     # Starts the CPLEX/DOCPLEX solver
     print("Solving...")
-    inst.exact_solve()
+    wf.solve()
 
     # Writing our solution inside a '.sol' file
     #inst.write_solutions()
 
     # Plotting our solution
-    inst.plot_solution(high=True)
+    wf.plot_solution(high=True)
 
 
 if __name__ == "__main__":
