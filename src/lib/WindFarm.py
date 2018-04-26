@@ -113,14 +113,12 @@ class WindFarm:
         points = []
 
         # the following opens and closes the file within the block
-        i = 1
         with open(self.turb_file, "r") as fp:
             for line in fp:
                 words = list(map(int, line.split()))
                 points.append(self.__Point(words[0], words[1], words[2]))
                 if int(words[2]) < 0.5:
                     self.__n_substations += 1
-                i += 1
 
         self.__n_nodes = len(points)
         self.__n_turbines = self.__n_nodes - self.__n_substations
@@ -1097,27 +1095,27 @@ class WindFarm:
     def write_results(self, file_name='results.csv'):
 
         """
+        Write the file to be used for perfromance profiling script
 
-
-        :param file_name:
-        :return:
+        :param file_name: Output file name
+        :return: None
 
         """
 
         with open(self.__project_path + "/out/" + self.out_dir_name + "/" + file_name, 'r') as fp:
             file_content = fp.readlines()
+
             num_columns = len(file_content[0].split(sep=','))
 
         with open(self.__project_path + "/out/" + self.out_dir_name + "/" + file_name, 'a') as fp:
 
-            # Check if the execution is the last one in the file
-            if len(file_content[-1].split(sep=',')) == num_columns:
-                fp.write("\n{0},".format(self.__data_select))
-            else:
-                fp.write(",")
+            num_tokens_last_line = len(file_content[-1].split(sep=','))
 
-            fp.write(str(self.__model.solution.get_objective_value()))
-            fp.flush()
+            if num_tokens_last_line == num_columns:  # Write down the instance name
+                fp.write("\ndata" + str(self.__data_select))
+
+            fp.write("," + str(self.__model.solution.get_objective_value()))
+
 
     def write_solutions(self):
 
@@ -1431,8 +1429,8 @@ class WindFarm:
         if not type(d) == str:
             warnings.warn("Out path not given as string. Trying a conversion.", ValueWarning)
             d = str(d)
-        if not os.path.exists(self.__project_path + '/out/' + d):
+        if not os.path.exists(self.__project_path + '/out/' + d) and self.__cluster is False:
             os.makedirs(self.__project_path + '/out/' + d)
-        if not os.path.exists(self.__project_path + '/out/' + d + '/img'):
+        if not os.path.exists(self.__project_path + '/out/' + d + '/img') and self.__cluster is False:
             os.makedirs(self.__project_path + '/out/' + d + '/img')
         self.__out_dir_name = d

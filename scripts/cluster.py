@@ -13,7 +13,7 @@ import getpass
 '''
 
 # All the options for the job
-dataset_numbers = [1, 7, 16, 20, 26]
+dataset_numbers = [1]  # , 7, 16, 20, 26]
 interfaces = ['cplex']
 rins_options = [-1, 0, 10, 100]
 num_iterations = 5
@@ -83,7 +83,7 @@ with open("commands.job", "w") as fp:
 
                     instruction += " --outfolder " + current_folder
                     # Setting the timeout and saving the output to a log file:
-                    instruction += " --timeout 300 \n"
+                    instruction += " --timeout 60 \n"
 
                     fp.write(instruction)
 
@@ -108,16 +108,15 @@ os.remove("commands.job")
 
 # Create the results file
 file = sftp.file(remote_path + 'out/' + current_folder + '/results.csv', "w", -1)
-file.write("{0},".format(len(interfaces)*len(rins_options)))
+num_columns = len(interfaces)*len(rins_options)
+line = "{0},".format(num_columns)
+
 for i in interfaces:
     for r in rins_options:
-        if d == dataset_numbers[-1] and i == interfaces[-1] and r == rins_options[-1]:
-            file.write("{0}_rins{1}".format(i, r))
-        else:
-            file.write("{0}_rins{1},".format(i, r))
-file.write("\n")
+        line += "{0}_rins{1},".format(i, r)
+line = line[:-1]  # Remove last comma
 
-file.flush()
+file.write(line)
 
 # Give this job to the cluster
 ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command("export SGE_ROOT=/usr/share/gridengine \n" +
