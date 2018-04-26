@@ -139,7 +139,6 @@ class WindFarm:
         # the following opens and closes the file within the block
         with open(self.cbl_file, "r") as fp:
             for line in fp:
-                # if len(cables) > 3: break
                 words = line.split()
                 cables.append(self.__Cable(int(words[0]), float(words[1]), int(words[2])))
 
@@ -427,7 +426,7 @@ class WindFarm:
         # Add y(i,j) variables
         self.__y_start = self.__model.get_statistics().number_of_variables
         self.__model.binary_var_list(
-            ((i+1,j+1)
+            ((i+1, j+1)
              for i in range(self.__n_nodes)
              for j in range(self.__n_nodes)),
             name="y%s"
@@ -566,10 +565,10 @@ class WindFarm:
         # Objective function
         self.__model.minimize(
             self.__model.sum(
-                cable.price * WindFarm.get_distance(u,v) * self.__model.get_var_by_index(self.__xpos(i,j,k))
-                for k,cable in enumerate(self.__cables)
-                for i,u in enumerate(self.__points)
-                for j,v in enumerate(self.__points)
+                cable.price * WindFarm.get_distance(u, v) * self.__model.get_var_by_index(self.__xpos(i, j, k))
+                for k, cable in enumerate(self.__cables)
+                for i, u in enumerate(self.__points)
+                for j, v in enumerate(self.__points)
             )
         )
 
@@ -580,7 +579,7 @@ class WindFarm:
         self.__model.parameters.timelimit.set(self.time_limit)
 
         # Writing the model to a proper location
-        self.__model.export_as_lp(path = self.__project_path+"/out/"+self.out_dir_name+"/lpmodel.lp")
+        self.__model.export_as_lp(path=self.__project_path+"/out/" + self.out_dir_name + "/lpmodel.lp")
 
     def __get_solution(self, var='x'):
 
@@ -681,7 +680,7 @@ class WindFarm:
 
         py:function:: __build_custom_parameters(self)
 
-        Sets the name and some constant parameters of the wind farm correctly,
+        Set the name and some constant parameters of the wind farm correctly,
         based on the dataset selection
 
         """
@@ -912,7 +911,7 @@ class WindFarm:
                           ParseWarning)
             self.__interface = 'cplex'
 
-        if args.rins:
+        if args.rins > -2:
             self.__rins = args.rins
 
         if args.timeout:
@@ -1115,7 +1114,6 @@ class WindFarm:
                 fp.write("\ndata" + str(self.__data_select))
 
             fp.write("," + str(self.__model.solution.get_objective_value()))
-
 
     def write_solutions(self):
 
@@ -1429,8 +1427,8 @@ class WindFarm:
         if not type(d) == str:
             warnings.warn("Out path not given as string. Trying a conversion.", ValueWarning)
             d = str(d)
-        if not os.path.exists(self.__project_path + '/out/' + d) and self.__cluster is False:
+        if not os.path.exists(self.__project_path + '/out/' + d):
             os.makedirs(self.__project_path + '/out/' + d)
-        if not os.path.exists(self.__project_path + '/out/' + d + '/img') and self.__cluster is False:
+        if not os.path.exists(self.__project_path + '/out/' + d + '/img'):
             os.makedirs(self.__project_path + '/out/' + d + '/img')
         self.__out_dir_name = d

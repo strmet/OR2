@@ -13,7 +13,7 @@ import getpass
 '''
 
 # All the options for the job
-dataset_numbers = [1]  # , 7, 16, 20, 26]
+dataset_numbers = [1, 7, 16, 20, 26]
 interfaces = ['cplex']
 rins_options = [-1, 0, 10, 100]
 num_iterations = 5
@@ -83,7 +83,7 @@ with open("commands.job", "w") as fp:
 
                     instruction += " --outfolder " + current_folder
                     # Setting the timeout and saving the output to a log file:
-                    instruction += " --timeout 60 \n"
+                    instruction += " --timeout 300 \n"
 
                     fp.write(instruction)
 
