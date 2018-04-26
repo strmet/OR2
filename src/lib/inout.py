@@ -1,3 +1,4 @@
+import pandas as pd
 import argparse
 import os
 import time
@@ -27,6 +28,18 @@ def p_input_read():
         p[id] = set(patient_genes)
 
     return p
+    
+    
+def testing(filename, genes_map):
+    frame = pd.read_csv(filename,sep="\t")
+
+    patients={}
+    for index,row in frame.iterrows():
+        patients.setdefault(row["sampleid"], set())
+        if row["geneid"] in genes_map:
+            patients[row["sampleid"]].add(genes_map[row["geneid"]])
+
+    return patients
 """
 
 
@@ -110,6 +123,18 @@ def parse_command_line():
         parameters['proteinsin'] = args.proteinsin
 
     return parameters
+
+
+def read_patients_prob(filename, genes_map):
+    frame = pd.read_csv(filename,sep="\t")
+
+    patients={}
+    for index,row in frame.iterrows():
+        patients.setdefault(row["sampleid"], {})
+        if row["geneid"] in genes_map:
+            patients[row["sampleid"]][genes_map[row["geneid"]]]=row["prob"]
+
+    return patients
 
 
 def read_patients(filename, genes_map):

@@ -10,7 +10,9 @@ class BDDE:
         self.root = 0
         self.samples = samples
         if f_bound is None:  # default = no boundings
-            self.bounding_function = lambda S: True
+            self.bounding_function = lambda S: False
+        elif f_bound is "furbo":
+            self.bounding_function = lambda S: self.our_bound(S,samples)
         else:
             self.bounding_function = lambda S: f_bound(S, self.k, self.samples)
         if prob:
@@ -18,13 +20,19 @@ class BDDE:
         else:
             self.scoring_function = lambda subgraph: score_cover(self.samples,subgraph)
         self.best_score = -1
+        self.best_min = -1
+        self.leaves_number = 0
         self.best_subgraph = []
+
+    def our_bound(self, S, samples):
+        return cardinality_bound(S,self.k) or prob_cover(samples,S,min=True) >= prob_cover(self.best_subgraph)
 
     def enumeration_algorithm(self):
 
         ListaNodi=list(self.G.nodes)
         self.best_score = -1
         self.best_subgraph = []
+        self.leaves_number=0
         for v in ListaNodi:
             radice=v
             self.root=radice
@@ -41,7 +49,7 @@ class BDDE:
                         leafs.append(n)
                     if B.in_degree(n)==0:  # allora è la radice
                         root=n
-
+                self.leaves_number+=len(leafs)
                 for n in leafs:
                     path_to_leaf=list(nx.shortest_path(B,root,n))
                     path_to_leaf=[node.data for node in path_to_leaf ]
@@ -50,11 +58,15 @@ class BDDE:
                     if score>self.best_score and len(path_to_leaf)==self.k:
                         self.best_score=score
                         self.best_subgraph=path_to_leaf
+                        self.best_min = prob_cover(self.samples,self.best_subgraph,min=True)
                         print("_________________")
                         print()
                         print("Best solution updated!")
                         print("Current C (ids): ", self.best_subgraph)
                         print("Current P_C (cardinality):", self.best_score)
+
+        print("Quante foglie?")
+        print(self.leaves_number)
 
     def BREADTH(self, S,n,U):
         vn=n.data
@@ -62,7 +74,7 @@ class BDDE:
             return None
 
         S1=S+[vn]
-        if not self.bounding_function(S1):
+        if self.bounding_function(S1):
             return None
 
         B=self.tree
@@ -75,7 +87,7 @@ class BDDE:
 
     def DEPTH(self, S,v,beta):
         S1=S+[v]
-        if not self.bounding_function(S1):
+        if self.bounding_function(S1):
             return None
 
         n=Nodo(v)
@@ -161,7 +173,7 @@ def genes_in_sample(l_v, genes_list):
 
 
 def cardinality_bound(S,k,samples=None):
-        return len(S)<=k
+        return len(S)>k
 
 
 def prob_cover(patients, l_v, min=False):
@@ -185,7 +197,10 @@ def combinatorial_algorithm(G, k, patients, delta=0.8, prob=False):
     G = delta_removal(G, delta)
 
     C = {}
-    P_C = set()
+    if prob:
+        P_C = -1
+    else:
+        P_C = set()
 
     if prob:
         cover = prob_cover

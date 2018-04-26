@@ -12,7 +12,7 @@ def main():
     G = load_network(parameters['genesin'])
     id_to_str, str_to_id = read_genes(parameters['proteinsin'])
     if parameters['prob']:
-        pass #quello che mi hai passato
+        patients = read_patients_prob(parameters['samplesin'], str_to_id)
     else:
         patients = read_patients(parameters['samplesin'], str_to_id)
 
@@ -21,7 +21,7 @@ def main():
     if strategy == 'combinatorial':
         C, P_C = combinatorial_algorithm(G,k,patients, prob=parameters['prob'])
     elif strategy == 'enumerate':
-        BDDE_instance = BDDE(G, patients, f_bound=cardinality_bound, k=k)
+        BDDE_instance = BDDE(G, patients, f_bound="furbo", k=k, prob=parameters['prob'])
         BDDE_instance.enumeration_algorithm()
         C = BDDE_instance.best_subgraph
         P_C = BDDE_instance.best_score
@@ -38,7 +38,6 @@ def main():
         print("Final solution cardinality: ", len(P_C))
     print("Elapsed time: ", time.strftime("%H:%M:%S", time.gmtime(t_end-t_start)))
     print("_________________")
-
 
 if __name__ == "__main__":
     main()

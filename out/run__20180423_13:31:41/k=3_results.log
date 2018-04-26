@@ -1,0 +1,56 @@
+_________________
+
+Best solution updated!
+Current C (ids):  {1632, 1, 8821}
+Current P_C (cardinality): 1271
+_________________
+
+Best solution updated!
+Current C (ids):  {1632, 8821, 5}
+Current P_C (cardinality): 1283
+_________________
+
+Best solution updated!
+Current C (ids):  {8821, 14, 9101}
+Current P_C (cardinality): 1293
+_________________
+
+Best solution updated!
+Current C (ids):  {16, 8821, 9101}
+Current P_C (cardinality): 1297
+_________________
+
+Best solution updated!
+Current C (ids):  {8821, 37, 6278}
+Current P_C (cardinality): 1370
+_________________
+
+Best solution updated!
+Current C (ids):  {6780, 8821, 294}
+Current P_C (cardinality): 1485
+_________________
+
+Best solution updated!
+Current C (ids):  {379, 6780, 8821}
+Current P_C (cardinality): 1486
+_________________
+
+Best solution updated!
+Current C (ids):  {472, 6780, 8821}
+Current P_C (cardinality): 1487
+_________________
+
+Best solution updated!
+Current C (ids):  {6780, 8821, 583}
+Current P_C (cardinality): 1543
+_________________
+
+Best solution updated!
+Current C (ids):  {6273, 2291, 8821}
+Current P_C (cardinality): 1632
+_________________
+Final solution (ids):  {6273, 2291, 8821}
+Final solution (genes' names):  ['PIK3CA', 'DDX5', 'TP53']
+Final solution cardinality:  1632
+Elapsed time:  03:32:25
+_________________

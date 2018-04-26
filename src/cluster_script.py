@@ -26,9 +26,9 @@ import getpass
 
 # input files
 proteinsin = "../../data/hint+hi2012_index_file.txt"
-samplesin = "../../data/snvs.tsv"
+samplesin = "../../data/matriceProb.csv"
 genesin = "../../data/hint+hi2012_edge_file.txt"
-probs = [False]  # Probabilistic version of the problem or not?
+probs = [True]  # Probabilistic version of the problem or not?
 strategy = ['enumerate']  # Do we want to use the enumerate approach or the combinatorial one?
 ks = [2,3,4,5]  # On which ks do we want to test our algorithm?
 delta = 0.8  # for now, delta doesn't really matter to the analysis
@@ -86,6 +86,7 @@ files = ['src/main.py', 'src/lib/core.py', 'src/lib/inout.py']
 with open("commands.job", "w") as fp:
     fp.write("#!/bin/bash \n")
     fp.write("pip3 install --user networkx \n")
+    fp.write("pip3 install --user pandas \n")
     for k in ks:
         for p in probs:
             for s in strategy:
