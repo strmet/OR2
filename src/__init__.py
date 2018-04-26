@@ -14,9 +14,10 @@ def main():
         - build the output folders
     """
 
-    wf = WindFarm(dataset_selection=1)
+    wf = WindFarm()
     # Reads the turbines and the cables file
     wf.parse_command_line()
+
     wf.read_input()
 
     # Builds the model with such
@@ -26,11 +27,14 @@ def main():
     print("Solving...")
     wf.solve()
 
+    if wf.cluster:
+        wf.write_results()
+
     # Writing our solution inside a '.sol' file
     #inst.write_solutions()
 
     # Plotting our solution
-    wf.plot_solution(high=True)
+    #wf.plot_solution(high=True)
 
 
 if __name__ == "__main__":

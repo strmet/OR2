@@ -13,10 +13,10 @@ import getpass
 '''
 
 # All the options for the job
-dataset_numbers = [30]
+dataset_numbers = [1, 7, 16, 20, 26]
 interfaces = ['cplex']  # , 'docplex']
-Cs = [8]  # [str(i) for i in range (7,10)]
-rins_options = [7]
+rins_options = [-1, 0, 10, 100]
+num_iterations = 5
 
 server = "login.dei.unipd.it"
 
@@ -25,11 +25,12 @@ ssh = paramiko.SSHClient()
 # Required, since "login.dei.unipd.it" is not a "well known ssh host"
 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
+# Ask the user the password
+pwd = str(getpass.getpass(prompt="Password: "))
+
 if getpass.getuser() == 'met': # Avoid asking username
-    pwd = str(getpass.getpass(prompt="Password: "))
     username = "stringherm"
 elif getpass.getuser() == 'venir':
-    pwd = str(getpass.getpass(prompt="Password: "))
     username = "venirluca"
 else:
     username = str(input("Please, enter your username (@" + server + "): "))
@@ -56,10 +57,11 @@ try:
     sftp.mkdir(remote_path + "out/")
 except IOError:
     pass
+
 sftp.mkdir(remote_path + "out/" + current_folder)
 
 # Files to be uploaded
-files = ['src/__init__.py', 'src/lib/WindFarm.py']
+files = ['src/__init__.py', 'src/lib/WindFarm.py', 'src/lib/callback.py']
 
 # Create a local file that will be sent to the server
 with open("commands.job", "w") as fp:
@@ -67,22 +69,21 @@ with open("commands.job", "w") as fp:
     fp.write("export PYTHONPATH=$PYTHONPATH:/nfsd/opt/CPLEX12.6/cplex/python/3.4/x86-64_linux/ \n")
     for d in dataset_numbers:
         for i in interfaces:
-            for c in Cs:
-                for r in rins_options:
+            for r in rins_options:
+                for it in range(num_iterations):
                     # Formatting/constructing the instruction to be given:
-                    instruction = "python3 "+ remote_path + "src/__init__.py"
+                    instruction = "python3 " + remote_path + "src/__init__.py"
 
                     # Options to be added:
                     instruction += " --dataset " + str(d)
                     instruction += " --interface " + i
-                    instruction += " --C " + str(c)
                     instruction += " --rins " + str(r)
                     instruction += " --cluster "
-                    #instruction += " --polishtime " + str(p_time)
+                    instruction
 
                     instruction += " --outfolder " + current_folder
                     # Setting the timeout and saving the output to a log file:
-                    instruction += " --timeout 600 \n"
+                    instruction += " --timeout 300 \n"
 
                     fp.write(instruction)
 
@@ -104,6 +105,19 @@ for file in files:
 print(local_path + 'scripts/commands.job' ' >>> ' + remote_path + 'out/' + current_folder + '/commands.job')
 sftp.put(local_path + 'scripts/commands.job', remote_path + 'out/' + current_folder + '/commands.job')
 os.remove("commands.job")
+
+# Create the results file
+file = sftp.file(remote_path + 'out/' + current_folder + '/results.csv', "w", -1)
+file.write("{0},".format(len(interfaces)*len(rins_options)))
+for i in interfaces:
+    for r in rins_options:
+        if d == dataset_numbers[-1] and i == interfaces[-1] and r == rins_options[-1]:
+            file.write("{0}_rins{1}".format(i, r))
+        else:
+            file.write("{0}_rins{1},".format(i, r))
+file.write("\n")
+
+file.flush()
 
 # Give this job to the cluster
 ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command("export SGE_ROOT=/usr/share/gridengine \n" +

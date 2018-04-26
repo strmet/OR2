@@ -4,15 +4,16 @@ Everything related to the instance of our problem is written in here.
 
 """
 
+# Docplex 2.4.56 must be used on the cluster to match the CPLEX' version installed
+# To install it type: pip3 install docplex=2.4.56 --user
+from docplex.mp.model import Model
 try:
-    from docplex.mp.model import Model
     import plotly.offline as py
     from plotly.graph_objs import *
-    import networkx as nx
     import matplotlib.pyplot as plt
 except:
     pass
-
+import networkx as nx
 import os.path
 import warnings
 import time
@@ -23,6 +24,8 @@ from collections import namedtuple
 import multiprocessing
 from .callback import LazyCallback
 import random
+import sys
+
 
 class ValueWarning(UserWarning):
     pass
@@ -43,7 +46,7 @@ class WindFarm:
     """
 
     # Class constructor
-    def __init__(self, dataset_selection=1):
+    def __init__(self):
 
         # The model itself
         self.__model = None
@@ -77,24 +80,23 @@ class WindFarm:
 
         # Operating parameters, commenting out whatever we don't use
         self.__project_path = ''
-        self.cluster = False
+        self.__cluster = False
         self.time_limit = 60
         self.rins = 7
-        self.polishtime = 45
+        self.polishtime = 9000
         self.__slack = True
         self.cross_mode = 'no'
         self.__debug_mode = False
         self.verbosity = 0
         self.__interface = 'cplex'
-        self.metaheuristic = None
-        self.__initial_wait_time = 0
+        self.__metaheuristic = None
+        self.__overall_wait_time = 900
 
         # Dataset selection and consequent input files building, and output parameters
-        self.data_select = dataset_selection
+        self.data_select = 1
 
         # Building the input/output files, while parsing the command line.
         self.__build_input_files()
-        self.__build_name()
         self.out_dir_name = 'test'
 
     # Private methods, internal to our class:
@@ -150,9 +152,13 @@ class WindFarm:
 
         """
 
-        :param i_off:
-        :param j_off:
-        :return:
+        Get the position of the column inside the model.
+        Must be used the number starting from 0.
+
+        :param i_off: First turbine number
+        :param j_off: Second turbine number
+
+        :return: Column index
 
         """
 
@@ -161,11 +167,15 @@ class WindFarm:
     def __xpos(self, i_off, j_off, k_off):
 
         """
-        .. description missing ..
-        :param i_off:
-        :param j_off:
-        :param k_off:
-        :return:
+
+        Get the position of the column inside the model
+
+        :param i_off: First turbine number
+        :param j_off: Second turbine number
+        :param k_off: Cable index
+
+        :return: Column index
+
         """
 
         return self.__x_start + i_off*self.__n_nodes*self.__n_cables + j_off*self.__n_cables + k_off
@@ -174,9 +184,13 @@ class WindFarm:
 
         """
 
-        :param i_off:
-        :param j_off:
-        :return:
+        Get the position of the column inside the model.
+        Must be used the number starting from 0.
+
+        :param i_off: First turbine number
+        :param j_off: Second turbine number
+
+        :return: Column index
 
         """
 
@@ -185,11 +199,12 @@ class WindFarm:
     def __slackpos(self, slack_off):
 
         """
-        py:function:: __slackpos(offset, k, inst)
 
-        .. description missing ..
+        Get the position of the column inside the model.
 
-        :param slack_off: Offset w.r.t slackstart and the substation indexed by h
+        :param slack_off: Offset w.r.t to the substation indexed by h
+
+        :return: Offset w.r.t slackstart
 
         """
 
@@ -663,14 +678,17 @@ class WindFarm:
         self.turb_file = self.__project_path + "/data/data_" + data_tostring + ".turb"
         self.cbl_file = self.__project_path + "/data/data_" + data_tostring + ".cbl"
 
-    def __build_name(self):
-        """
-
-        py:function:: __build_name(self)
-
-        Sets the name of the wind farm correctly, based on the dataset selection
+    def __build_custom_parameters(self):
 
         """
+
+        py:function:: __build_custom_parameters(self)
+
+        Sets the name and some constant parameters of the wind farm correctly,
+        based on the dataset selection
+
+        """
+
         if not type(self.data_select) == int:
             raise TypeError("Expecting an integer value representing the dataset. Given: " + str(self.data_select))
         if self.data_select <= 0 or self.data_select >= 32:
@@ -681,16 +699,22 @@ class WindFarm:
         wf_number = 0
         if 0 <= self.data_select <= 6:
             wf_number = 1
+            self.c = 10
         elif 7 <= self.data_select <= 15:
             wf_number = 2
+            self.c = 100
         elif 16 <= self.data_select <= 19:
             wf_number = 3
+            self.c = 4
         elif 20 <= self.data_select <= 21:
             wf_number = 4
+            self.c = 10
         elif 26 <= self.data_select <= 29:
             wf_number = 5
+            self.c = 10
         elif 30 <= self.data_select <= 31:
             wf_number = 6
+            self.c = 12
 
         if wf_number == 0:
             raise ValueError("Something went wrong with the Wind Farm number;\n" +
@@ -709,6 +733,7 @@ class WindFarm:
         :param export: whatever this means
 
         """
+
         G = nx.DiGraph()
 
         mapping = {}
@@ -736,7 +761,6 @@ class WindFarm:
 
         #if export:
         #    plt.savefig(self.__project_path + '/out/' + self.out_dir_name + '/img/foo.svg')
-
 
         plt.show()
 
@@ -847,15 +871,21 @@ class WindFarm:
 
         parser = argparse.ArgumentParser(description='Process details about instance and interface.')
 
-        parser.add_argument('--dataset', type=int, help="dataset selection; datasets available: [1,29]. " +
+        parser.add_argument('--dataset', type=int,
+                            help="dataset selection; datasets available: [1,29]. " +
                                                         "You can use '30' for debug purposes")
-        parser.add_argument('--cluster', action="store_true", help='type --cluster if you want to use the cluster')
-        parser.add_argument('--interface', choices=['docplex', 'cplex'], help='Choose the interface ')
-        parser.add_argument('--C', type=int, help='the maximum number of cables linked to a substation')
-        parser.add_argument('--rins', type=int, help='the frequency with which the RINS Heuristic will be applied')
-        parser.add_argument('--timeout', type=int, help='timeout in which the optimizer will stop iterating')
-        parser.add_argument('--polishtime', type=int, help='the time to wait before applying polishing')
-        parser.add_argument('--outfolder', type=str, help='name of the folder to be created inside the /out' +
+        parser.add_argument('--cluster', action="store_true",
+                            help='type --cluster if you want to use the cluster')
+        parser.add_argument('--interface', choices=['docplex', 'cplex'],
+                            help='Choose the interface ')
+        parser.add_argument('--rins', type=int,
+                            help='the frequency with which the RINS Heuristic will be applied')
+        parser.add_argument('--timeout', type=int,
+                            help='timeout in which the optimizer will stop iterating')
+        parser.add_argument('--polishtime', type=int,
+                            help='the time to wait before applying polishing')
+        parser.add_argument('--outfolder', type=str,
+                            help='name of the folder to be created inside the /out' +
                                                           ' directory, which contains everything related to this run')
         parser.add_argument('--noslack', action="store_true",
                             help='type --noslack if you do not want the soft version of the problem')
@@ -863,8 +893,8 @@ class WindFarm:
                             help='Choose how you want to address the crossing problem')
         parser.add_argument('--metaheuristic', choices=['hard'],
                             help='Choose one metaheuristic method to wrap the execution')
-        parser.add_argument('--initial_wait_time', type=int,
-                            help='Initial wait time for callbacks. If callback-mode is not true, it is ignored')
+        parser.add_argument('--overall_wait_time', type=int,
+                            help='Used in hard fixing and loop method to stop the execution')
 
         args = parser.parse_args()
 
@@ -875,7 +905,7 @@ class WindFarm:
             self.data_select = args.dataset
 
         if args.cluster:
-            self.cluster = True
+            self.__cluster = True
 
         if args.interface == 'docplex' or args.interface == 'cplex':
             self.__interface = args.interface
@@ -884,12 +914,6 @@ class WindFarm:
                           + "Using the default value: " + self.__interface,
                           ParseWarning)
             self.__interface = 'cplex'
-
-        if args.C is not None:
-            self.c = args.C
-        else:
-            warnings.warn("Invalid 'C' value; '" + str(args.C) + "' given. Using the default value: " + str(self.c),
-                          ParseWarning)
 
         if args.rins:
             self.rins = args.rins
@@ -907,13 +931,13 @@ class WindFarm:
             self.cross_mode = args.crossings
 
         if args.metaheuristic:
-            self.metaheuristic = args.metaheuristic
+            self.__metaheuristic = args.metaheuristic
 
-        if args.initial_wait_time:
-            self.__initial_wait_time = args.initial_wait_time
+        if args.overall_wait_time:
+            self.__overall_wait_time = args.overall_wait_time
 
         self.__build_input_files()
-        self.__build_name()
+        self.__build_custom_parameters()
 
     def build_model(self):
 
@@ -957,7 +981,6 @@ class WindFarm:
             lazycb.EdgeSol = self.__EdgeSol
             lazycb.start_time = time.time()
             lazycb.sum_time = 0
-            lazycb.initial_wait_time = self.__initial_wait_time
             lazycb.n_cables = self.__n_cables
             lazycb.model = self.__model
 
@@ -971,12 +994,11 @@ class WindFarm:
             xs = True       # "are there any crosses in this solution?"
             opt = False     # "has the optimum been reached?"
             starting_time = time.time()
-            current_time = time.time()
 
             for i in range(3):
                 self.__model.solve()
 
-            while (xs or not opt) and time.time() - starting_time < 890:
+            while (xs or not opt) and time.time() - starting_time < self.__overall_wait_time:
                 self.__model.solve()
                 self.plot_solution(edges=self.__get_solution(var='x'), high=False)
 
@@ -998,9 +1020,18 @@ class WindFarm:
             raise ValueError("Unrecognized cross-strategy; given: " + str(self.cross_mode))
 
     def __hard_fix(self):
+
+        """
+
+        Solve the problem using the hard fixing metaheuristic
+
+        :return: None
+
+        """
+
         optimum = False     # "has the optimum been reached?"
         starting_time = time.time()
-        probability = 0.8
+        probability = 0.9
         initial_best_bound = 0
 
         for i in range(3):
@@ -1008,8 +1039,7 @@ class WindFarm:
             if i == 2:
                 initial_best_bound = 0 # TODO
 
-
-        while not optimum and time.time() - starting_time < 1200:
+        while not optimum and time.time() - starting_time < self.__overall_wait_time:
 
             sol = self.__get_solution(var='y')
             self.plot_solution(self.__get_solution(var='x'))
@@ -1041,13 +1071,54 @@ class WindFarm:
 
             probability -= 0.05
             probability = max(probability, 0.5)
+
+        print(time.time() - starting_time)
         #self.plot_solution(self.__get_solution(var='x'))
 
     def solve(self):
-        if self.metaheuristic is None:
+
+        """
+
+        Call the right method to solve the problem
+
+        :return: None
+
+        """
+
+        print(self.__rins)
+
+        if self.__cluster:
+            self.__model.parameters.randomseed = random.randint(0, sys.maxsize)
+
+        if self.__metaheuristic is None:
             self.__exact_solve()
-        elif self.metaheuristic == 'hard':
+        elif self.__metaheuristic == 'hard':
             self.__hard_fix()
+
+    def write_results(self, file_name='results.csv'):
+
+        """
+
+
+        :param file_name:
+        :return:
+
+        """
+
+        with open(self.__project_path + "/out/" + self.out_dir_name + "/" + file_name, 'r') as fp:
+            file_content = fp.readlines()
+            num_columns = len(file_content[0].split(sep=','))
+
+        with open(self.__project_path + "/out/" + self.out_dir_name + "/" + file_name, 'a') as fp:
+
+            # Check if the execution is the last one in the file
+            if len(file_content[-1].split(sep=',')) == num_columns:
+                fp.write("\n{0},".format(self.__data_select))
+            else:
+                fp.write(",")
+
+            fp.write(str(self.__model.solution.get_objective_value()))
+            fp.flush()
 
     def write_solutions(self):
 
@@ -1055,12 +1126,13 @@ class WindFarm:
 
         Writes the solutions obtained by first invoking the built-in function of the model,
         and then by returning our private __get_solution() method, which returns the list of the
-        x_{ij}^k variables set to one.
-        :return: the list of x_{ij}^k variables set to one from the solution
+        x(i,j,k) variables set to one.
+
+        :return: the list of x(i,j,k) variables set to one from the solution
 
         """
 
-        self.__model.solution.write(self.__project_path + "/out/" + self.out_dir_name + "/mysol.sol")
+        self.__model.solution.write(self.__project_path + "/out/" + self.out_dir_name + "/mysol.sol", 'r')
         return self.__get_solution()
 
     def read_input(self):
@@ -1087,10 +1159,11 @@ class WindFarm:
         :param show: if =True, the exported plot will be shown right away.
         :param edges: list of edges to be plotted
         :param high: if =True, an high-quality img will be plotted, also
-        :param export: if =True, such high-quality img will be exported
+
         :return: None
 
         """
+
         if edges is None:
             edges = self.__get_solution(var='x')
 
@@ -1179,7 +1252,9 @@ class WindFarm:
 
     @staticmethod
     def are_crossing(pt1, pt2, pt3, pt4):
+
         """
+
         Recall that one edge has its extremes on (x_1,y_1) and (x_2,y_2);
         the same goes for the second edge, which extremes are (x_3,y_3) and (x_4,y_4).
 
@@ -1187,8 +1262,11 @@ class WindFarm:
         :param pt2: second point
         :param pt3: third point
         :param pt4: fourth point
+
         :return:
+
         """
+
         det_A = (pt4.x - pt3.x) * (pt1.y - pt2.y) - (pt4.y - pt3.y) * (pt1.x - pt2.x)
         if det_A == 0:
             return False
