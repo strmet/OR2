@@ -14,7 +14,7 @@ import getpass
 
 # All the options for the job
 dataset_numbers = [1, 7, 16, 20, 26]
-interfaces = ['cplex']  # , 'docplex']
+interfaces = ['cplex']
 rins_options = [-1, 0, 10, 100]
 num_iterations = 5
 
@@ -67,10 +67,11 @@ files = ['src/__init__.py', 'src/lib/WindFarm.py', 'src/lib/callback.py']
 with open("commands.job", "w") as fp:
     fp.write("#!/bin/bash \n")
     fp.write("export PYTHONPATH=$PYTHONPATH:/nfsd/opt/CPLEX12.6/cplex/python/3.4/x86-64_linux/ \n")
-    for d in dataset_numbers:
-        for i in interfaces:
-            for r in rins_options:
-                for it in range(num_iterations):
+
+    for it in range(num_iterations):
+        for d in dataset_numbers:
+            for i in interfaces:
+                for r in rins_options:
                     # Formatting/constructing the instruction to be given:
                     instruction = "python3 " + remote_path + "src/__init__.py"
 
@@ -79,7 +80,6 @@ with open("commands.job", "w") as fp:
                     instruction += " --interface " + i
                     instruction += " --rins " + str(r)
                     instruction += " --cluster "
-                    instruction
 
                     instruction += " --outfolder " + current_folder
                     # Setting the timeout and saving the output to a log file:

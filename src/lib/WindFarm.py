@@ -82,7 +82,7 @@ class WindFarm:
         self.__project_path = ''
         self.__cluster = False
         self.time_limit = 60
-        self.rins = 7
+        self.__rins = 7
         self.polishtime = 9000
         self.__slack = True
         self.cross_mode = 'no'
@@ -113,14 +113,14 @@ class WindFarm:
         points = []
 
         # the following opens and closes the file within the block
-        i=1
+        i = 1
         with open(self.turb_file, "r") as fp:
             for line in fp:
                 words = list(map(int, line.split()))
                 points.append(self.__Point(words[0], words[1], words[2]))
                 if int(words[2]) < 0.5:
                     self.__n_substations += 1
-                i+=1
+                i += 1
 
         self.__n_nodes = len(points)
         self.__n_turbines = self.__n_nodes - self.__n_substations
@@ -401,14 +401,13 @@ class WindFarm:
                                 self.__add_violating_constraint(current_couple + violating_cds)
 
         # Adding the parameters to the model
-        self.__model.parameters.mip.strategy.rinsheur.set(self.rins)
+        self.__model.parameters.mip.strategy.rinsheur.set(self.__rins)
         if self.polishtime < self.time_limit:
             self.__model.parameters.mip.polishafter.time.set(self.polishtime)
         self.__model.parameters.timelimit.set(self.time_limit)
 
         # Writing the model to a proper location
         self.__model.write(self.__project_path + "/out/" + self.out_dir_name + "/lpmodel.lp")
-
 
     def __build_model_docplex(self):
 
@@ -916,7 +915,7 @@ class WindFarm:
             self.__interface = 'cplex'
 
         if args.rins:
-            self.rins = args.rins
+            self.__rins = args.rins
 
         if args.timeout:
             self.time_limit = args.timeout
@@ -1085,7 +1084,7 @@ class WindFarm:
 
         """
 
-        print(self.__rins)
+        print("Rins = ", self.__model.parameters.mip.strategy.rinsheur.get())
 
         if self.__cluster:
             self.__model.parameters.randomseed = random.randint(0, sys.maxsize)
