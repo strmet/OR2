@@ -30,12 +30,13 @@ def main():
     if wf.cluster:
         wf.write_results()
 
+
     # Writing our solution inside a '.sol' file
     #inst.write_solutions()
 
     # Plotting our solution
-    #wf.plot_solution(high=True)
+    wf.plot_solution(high=True)
 
-
+    wf.release()
 if __name__ == "__main__":
     main()
