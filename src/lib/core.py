@@ -20,7 +20,6 @@ class BDDE:
         else:
             self.scoring_function = lambda subgraph: score_cover(self.samples,subgraph)
         self.best_score = -1
-        self.best_min = -1
         self.leaves_number = 0
         self.best_subgraph = []
 
@@ -58,7 +57,6 @@ class BDDE:
                     if score>self.best_score and len(path_to_leaf)==self.k:
                         self.best_score=score
                         self.best_subgraph=path_to_leaf
-                        self.best_min = prob_cover(self.samples,self.best_subgraph,min=True)
                         print("_________________")
                         print()
                         print("Best solution updated!")
@@ -193,27 +191,15 @@ def prob_cover(patients, l_v, min=False):
         return len(patients) - som
 
 
-def combinatorial_algorithm(G, k, patients, delta=0.8, prob=False):
+def combinatorial_algorithm(G, k, patients, delta=0.8):
     G = delta_removal(G, delta)
 
     C = {}
-    if prob:
-        P_C = -1
-    else:
-        P_C = set()
-
-    if prob:
-        cover = prob_cover
-        ratio = lambda elem_diff, nodes_diff: elem_diff / len(nodes_diff)
-        better = lambda current, best: current>best
-    else:
-        cover = set_cover
-        ratio = lambda elem_diff, nodes_diff: len(elem_diff) / len(nodes_diff)
-        better = lambda current, best: len(current)>len(best)
+    P_C = set()
 
     for v in G.nodes():
         C_v = {v}
-        P_C_v = cover(patients, C_v)  # no need to compute this \foreach u
+        P_C_v = set_cover(patients, C_v)  # no need to compute this \foreach u
 
         p_v = {u: set(nx.shortest_path(G, v, u)) for u in G.nodes() if u is not v}
 
@@ -225,26 +211,64 @@ def combinatorial_algorithm(G, k, patients, delta=0.8, prob=False):
                 l_v = p_v[u]
 
                 if len(l_v | C_v) <= k:  # "|" is an overloaded operator, it means 'union'
-                    P_v = cover(patients, l_v)
+                    P_v = set_cover(patients, l_v)
 
-                    s = ratio(P_v - P_C_v, l_v - C_v)
+                    s = len(P_v - P_C_v)/ len(l_v - C_v)
                     if maximum < s:
                         maximum = s
                         l_v_max = l_v
             C_v = C_v | l_v_max
-            P_C_v = cover(patients, C_v)
+            P_C_v = set_cover(patients, C_v)
 
-        if better(P_C_v,P_C):  # if we've found a better solution, update it and let us know
+        if len(P_C_v) > len(P_C):  # if we've found a better solution, update it and let us know
             C = C_v
-            P_C = cover(patients, C)
+            P_C = P_C_v
             print("_________________")
             print()
             print("Best solution updated!")
             print("Current C (ids): ", C)
-            if prob:
-                print("Current P_C (cardinality):", P_C)
-            else:
-                print("Current P_C (cardinality):", len(P_C))
+            print("Current P_C (cardinality):", len(P_C))
+
+    return C, P_C
+
+
+def prob_combinatorial_algorithm(G, k, patients, delta=0.8):
+    G = delta_removal(G, delta)
+
+    C = {}
+    P_C = -1
+
+    for v in G.nodes():
+        C_v = {v}
+        P_C_v = prob_cover(patients, C_v)  # no need to compute this \foreach u
+
+        p_v = {u: set(nx.shortest_path(G, v, u)) for u in G.nodes() if u is not v}
+
+        while len(C_v) < k:
+            maximum = -1
+            l_v_max = set()
+
+            for u in G.nodes() - C_v:  # "-" is an overloaded operator, it means 'difference'
+                l_v = p_v[u]
+
+                if len(l_v | C_v) <= k:  # "|" is an overloaded operator, it means 'union'
+                    P_v = prob_cover(patients, l_v | C_v)
+
+                    s = (P_v - P_C_v)/ len(l_v - C_v)
+                    if maximum < s:
+                        maximum = s
+                        l_v_max = l_v
+            C_v = C_v | l_v_max
+            P_C_v = prob_cover(patients, C_v)
+
+        if P_C_v > P_C:  # if we've found a better solution, update it and let us know
+            C = C_v
+            P_C = P_C_v
+            print("_________________")
+            print()
+            print("Best solution updated!")
+            print("Current C (ids): ", C)
+            print("Current P_C (cardinality):", P_C)
 
     return C, P_C
 
