@@ -126,56 +126,58 @@ def parse_command_line():
 
 
 def read_patients_prob(filename, genes_map, prob=True):
-    frame = pd.read_csv(filename,sep="\t")
 
-    patients={}
-    for index,row in frame.iterrows():
-        patients.setdefault(row["sampleid"], {} if prob else set())
-        if row["geneid"] in genes_map:
-            if prob:
+    with pd.read_csv(filename,sep="\t") as frame:
+        patients={}
+        for index,row in frame.iterrows():
+            patients.setdefault(row["sampleid"], {})
+            if row["geneid"] in genes_map:
                 patients[row["sampleid"]][genes_map[row["geneid"]]]=row["prob"]
-            else:
-                patients[row["sampleid"]].add(genes_map[row["geneid"]])
 
     return patients
 
 
 def read_patients(filename, genes_map):
-    file = open(filename, "r")
-    patients={}
-    lines=file.readlines()
-    for l in lines:
-        s=l.split("\t")
-        # Nota: se un gene risulta mutato in un paziente ma non compare nell'elenco dei geni dato in input,
-        #       lo eliminiamo nell'elenco dei geni mutati di tale paziente, considerandolo (evidentemente)
-        #       non rilevante.
-        patients[s[0]]=set([genes_map[gene] for gene in s[1:] if gene in genes_map])
+
+    with open(filename, "r") as file:
+        patients={}
+        lines=file.readlines()
+        for l in lines:
+            s=l.split("\t")
+            # Nota: se un gene risulta mutato in un paziente ma non compare nell'elenco dei geni dato in input,
+            #       lo eliminiamo nell'elenco dei geni mutati di tale paziente, considerandolo (evidentemente)
+            #       non rilevante.
+            patients[s[0]]=set([genes_map[gene] for gene in s[1:] if gene in genes_map])
 
     return patients
 
 
 def read_genes(filename):
-    file = open(filename, "r")
+    
     id_to_str={}  # dato l'id del gene, d[id] = "stringa del gene"
     str_to_id={}  # data la stringa del gene, d[stringa] = "id del gene"
-    lines=file.readlines()
-    for l in lines:
-        s=l.split(" ")
-        gene_id = int(s[0])
-        gene_str = s[1].split("\t")[0]
-        id_to_str[gene_id] = gene_str
-        str_to_id[gene_str] = gene_id
+
+    with open(filename, "r") as file:
+        lines=file.readlines()
+        for l in lines:
+            s=l.split(" ")
+            gene_id = int(s[0])
+            gene_str = s[1].split("\t")[0]
+            id_to_str[gene_id] = gene_str
+            str_to_id[gene_str] = gene_id
 
     return id_to_str, str_to_id
 
 
 def load_network(filename):
-    file = open(filename, "r")
-    G=nx.Graph()
-    lines=file.readlines()
-    for l in lines:
-        s=l.split(" ")
-        s=[ int(ss) for ss in s]
-        G.add_edge(s[0], s[1] ,weight=s[2])
+
+    with open(filename, "r") as file:
+        G=nx.Graph()
+        lines=file.readlines()
+        for l in lines:
+            s=l.split(" ")
+            s=[ int(ss) for ss in s]
+            G.add_edge(s[0], s[1] ,weight=s[2])
+
     return G
 

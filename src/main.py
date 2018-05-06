@@ -12,9 +12,7 @@ def main():
     if parameters['prob']:
         patients = read_patients_prob(parameters['samplesin'], str_to_id)
     else:
-        # ESTRARRE MATRICE BINARIA DA QUI CON UNO SCRIPT IN MODO DA NON MODIFICARE IL MAIN
-        patients = read_patients_prob(parameters['samplesin'], str_to_id, prob=False)
-        # patients = read_patients(parameters['samplesin'], str_to_id)
+        patients = read_patients(parameters['samplesin'], str_to_id)
 
     if strategy == 'combinatorial':
         if parameters['prob']:
