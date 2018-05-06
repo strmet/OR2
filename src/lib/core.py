@@ -182,11 +182,7 @@ def delta_removal(G, delta):
     return G
 
 
-def cardinality_bound(S,k,samples=None):
-        return len(S)>k
-
-
-def prob_cover(patients, l_v, min=False):
+def prob_cover(patients, l_v):
     som=0.0
 
     for j in patients:
@@ -197,10 +193,7 @@ def prob_cover(patients, l_v, min=False):
                 prod*=1.0-patients[j][i]
         som+=prod
 
-    if min:
-        return som
-    else:
-        return len(patients) - som
+    return len(patients) - som
 
 
 def combinatorial_algorithm(G, k, patients, delta=0.8):
