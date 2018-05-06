@@ -26,7 +26,7 @@ proteinsin = "../../data/hint+hi2012_index_file.txt"
 genesin = "../../data/hint+hi2012_edge_file.txt"
 probs = [True]  # Probabilistic version of the problem or not?
 strategy = ['enumerate']  # Do we want to use the enumerate approach or the combinatorial one?
-ks = [4]  # On which ks do we want to test our algorithm?
+ks = [3]  # On which ks do we want to test our algorithm?
 delta = 0.8  # for now, delta doesn't really matter to the analysis
 time_out = 604800  # for now, for each execution, we're willing to wait 7 days per run, maximum
 
@@ -68,7 +68,8 @@ for k in ks:
         for s in strategy:
             # Create a local file that will be sent to the server (the infamous '.job' file)
             # Main output folder:
-            time.sleep(5)
+
+            time.sleep(.250)
             current_time = time.time()
             timestamp = datetime.datetime.fromtimestamp(current_time).strftime('%Y%m%d_%H:%M:%S')
             current_folder = "run__" + timestamp
@@ -145,6 +146,8 @@ for k in ks:
             # Print output and errors
             print(ssh_stdout.read().decode('utf-8'))
             print(ssh_stderr.read().decode('utf-8'))
+
+            time.sleep(5-.250)
 
 sftp.close()
 ssh.close()

@@ -1,0 +1,82 @@
+_________________
+
+Best solution updated!
+Current C (ids):  [1, 1632]
+Current P_C (cardinality): 2.172523554876477
+_________________
+
+Best solution updated!
+Current C (ids):  [1, 3557]
+Current P_C (cardinality): 3.166748023555158
+_________________
+
+Best solution updated!
+Current C (ids):  [2, 7588]
+Current P_C (cardinality): 3.3173839401630403
+_________________
+
+Best solution updated!
+Current C (ids):  [5, 1632]
+Current P_C (cardinality): 3.8865835918467724
+_________________
+
+Best solution updated!
+Current C (ids):  [5, 4796]
+Current P_C (cardinality): 12.157225825203795
+_________________
+
+Best solution updated!
+Current C (ids):  [12, 7030]
+Current P_C (cardinality): 14.09526120198069
+_________________
+
+Best solution updated!
+Current C (ids):  [28, 6278]
+Current P_C (cardinality): 21.67962132755673
+_________________
+
+Best solution updated!
+Current C (ids):  [37, 2622]
+Current P_C (cardinality): 25.50841025749014
+_________________
+
+Best solution updated!
+Current C (ids):  [37, 8821]
+Current P_C (cardinality): 32.80345360732832
+_________________
+
+Best solution updated!
+Current C (ids):  [79, 9030]
+Current P_C (cardinality): 57.25833410057521
+_________________
+
+Best solution updated!
+Current C (ids):  [87, 9030]
+Current P_C (cardinality): 57.473989969100444
+_________________
+
+Best solution updated!
+Current C (ids):  [88, 9030]
+Current P_C (cardinality): 57.67062504280398
+_________________
+
+Best solution updated!
+Current C (ids):  [1283, 9030]
+Current P_C (cardinality): 59.298132411654706
+_________________
+
+Best solution updated!
+Current C (ids):  [5580, 9030]
+Current P_C (cardinality): 61.6690906732573
+_________________
+
+Best solution updated!
+Current C (ids):  [5903, 9030]
+Current P_C (cardinality): 66.57171336037828
+Quante foglie?
+60
+_________________
+Final solution (ids):  [5903, 9030]
+Final solution (genes' names):  ['OBSCN', 'TTN']
+Final solution cardinality:  66.57171336037828
+_________________
