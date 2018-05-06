@@ -1,0 +1,45 @@
+_________________
+
+Best solution updated!
+Current C (ids):  {1632, 1, 9101, 8821, 6780, 2622}
+Current P_C (cardinality): 83.64185064947645
+_________________
+
+Best solution updated!
+Current C (ids):  {1632, 9282, 5, 9030, 6951, 8821}
+Current P_C (cardinality): 89.57064209163786
+_________________
+
+Best solution updated!
+Current C (ids):  {6278, 9101, 14, 8821, 6780, 2622}
+Current P_C (cardinality): 98.18688472398804
+_________________
+
+Best solution updated!
+Current C (ids):  {6278, 9101, 16, 8821, 6780, 2622}
+Current P_C (cardinality): 98.64124853059627
+_________________
+
+Best solution updated!
+Current C (ids):  {5520, 9282, 8821, 37, 9030, 2622}
+Current P_C (cardinality): 104.974670639404
+_________________
+
+Best solution updated!
+Current C (ids):  {9030, 6278, 9101, 79, 6780, 2622}
+Current P_C (cardinality): 119.5277532891181
+_________________
+
+Best solution updated!
+Current C (ids):  {9282, 9030, 6278, 6780, 9101, 2622}
+Current P_C (cardinality): 121.59971408172504
+_________________
+
+Best solution updated!
+Current C (ids):  {9282, 8821, 9030, 5864, 6780, 2622}
+Current P_C (cardinality): 129.55699404511353
+_________________
+Final solution (ids):  {9282, 8821, 9030, 5864, 6780, 2622}
+Final solution (genes' names):  ['VAV2', 'TP53', 'TTN', 'NUMB', 'PTEN', 'EGFR']
+Final solution cardinality:  129.55699404511353
+_________________
