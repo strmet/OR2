@@ -1,0 +1,70 @@
+_________________
+
+Best solution updated!
+Current C (ids):  {1632, 1, 8821, 6278, 6780, 9101, 2622}
+Current P_C (cardinality): 97.08031565101402
+_________________
+
+Best solution updated!
+Current C (ids):  {1632, 9282, 5, 9030, 6951, 5903, 8821}
+Current P_C (cardinality): 97.37056399205238
+_________________
+
+Best solution updated!
+Current C (ids):  {4676, 9, 9485, 8821, 6780, 5373, 2622}
+Current P_C (cardinality): 104.69514208868782
+_________________
+
+Best solution updated!
+Current C (ids):  {9282, 35, 3556, 9030, 6278, 6780, 9101}
+Current P_C (cardinality): 104.89696250611968
+_________________
+
+Best solution updated!
+Current C (ids):  {9282, 3556, 36, 9030, 9101, 6780, 2622}
+Current P_C (cardinality): 111.13807654845289
+_________________
+
+Best solution updated!
+Current C (ids):  {5520, 9282, 8821, 37, 9030, 6278, 2622}
+Current P_C (cardinality): 117.47491948381975
+_________________
+
+Best solution updated!
+Current C (ids):  {5903, 9030, 6278, 6780, 9101, 2622, 79}
+Current P_C (cardinality): 127.7416919685403
+_________________
+
+Best solution updated!
+Current C (ids):  {9282, 2053, 9030, 8821, 1256, 6780, 2622}
+Current P_C (cardinality): 129.53945229789457
+_________________
+
+Best solution updated!
+Current C (ids):  {6417, 9282, 8821, 9030, 1466, 6780, 2622}
+Current P_C (cardinality): 129.5994761069416
+_________________
+
+Best solution updated!
+Current C (ids):  {1488, 9282, 8821, 9030, 6780, 9101, 2622}
+Current P_C (cardinality): 129.6845956861419
+_________________
+
+Best solution updated!
+Current C (ids):  {9282, 8821, 9030, 1590, 6780, 9101, 2622}
+Current P_C (cardinality): 130.40852845055582
+_________________
+
+Best solution updated!
+Current C (ids):  {736, 9282, 9030, 3115, 8821, 6780, 2622}
+Current P_C (cardinality): 131.1355241986784
+_________________
+
+Best solution updated!
+Current C (ids):  {9282, 8821, 9030, 6278, 5864, 6780, 2622}
+Current P_C (cardinality): 141.27457232783271
+_________________
+Final solution (ids):  {9282, 8821, 9030, 6278, 5864, 6780, 2622}
+Final solution (genes' names):  ['VAV2', 'TP53', 'TTN', 'PIK3R1', 'NUMB', 'PTEN', 'EGFR']
+Final solution cardinality:  141.27457232783271
+_________________
