@@ -26,11 +26,11 @@ import getpass
 
 # input files
 proteinsin = "../../data/hint+hi2012_index_file.txt"
-samplesin = "../../data/matriceProb.csv"
+samplesin = "../../data/matriceBinaria.csv"
 genesin = "../../data/hint+hi2012_edge_file.txt"
-probs = [True]  # Probabilistic version of the problem or not?
+probs = [False]  # Probabilistic version of the problem or not?
 strategy = ['combinatorial']  # Do we want to use the enumerate approach or the combinatorial one?
-ks = [5]  # On which ks do we want to test our algorithm?
+ks = [2,3,4]  # On which ks do we want to test our algorithm?
 delta = 0.8  # for now, delta doesn't really matter to the analysis
 time_out = 604800  # for now, for each execution, we're willing to wait 7 days per run, maximum
 
@@ -65,7 +65,7 @@ remote_path = "/home/" + username + "/algobio1718/"
 local_path = os.path.dirname(os.getcwd()) + "/"
 
 # Files to be uploaded
-files = ['src/main.py', 'src/lib/core.py', 'src/lib/inout.py']
+files = ['src/main.py', 'src/lib/core.py', 'src/lib/inout.py', proteinsin, samplesin, genesin]
 
 for k in ks:
     for p in probs:

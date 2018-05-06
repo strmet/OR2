@@ -153,7 +153,7 @@ def read_patients(filename, genes_map):
 
 
 def read_genes(filename):
-    
+
     id_to_str={}  # dato l'id del gene, d[id] = "stringa del gene"
     str_to_id={}  # data la stringa del gene, d[stringa] = "id del gene"
 
