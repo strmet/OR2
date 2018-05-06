@@ -127,12 +127,12 @@ def parse_command_line():
 
 def read_patients_prob(filename, genes_map, prob=True):
 
-    with pd.read_csv(filename,sep="\t") as frame:
-        patients={}
-        for index,row in frame.iterrows():
-            patients.setdefault(row["sampleid"], {})
-            if row["geneid"] in genes_map:
-                patients[row["sampleid"]][genes_map[row["geneid"]]]=row["prob"]
+    frame = pd.read_csv(filename,sep="\t")
+    patients={}
+    for index,row in frame.iterrows():
+        patients.setdefault(row["sampleid"], {})
+        if row["geneid"] in genes_map:
+            patients[row["sampleid"]][genes_map[row["geneid"]]]=row["prob"]
 
     return patients
 

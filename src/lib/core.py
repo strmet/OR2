@@ -9,6 +9,15 @@ class BDDE:
         self.tree = nx.DiGraph()
         self.root = 0
         self.samples = samples
+        print(self.samples)
+        input()
+        # initiating the minimums \forall qs
+        self.min_qs = {sample: 1 for sample in self.samples}
+        print(self.min_qs)
+        input()
+        self.min_qs = {sample: min(sample) for sample in self.samples}
+        print(self.min_qs)
+        input()
         if f_bound is None:  # default = no boundings
             self.bounding_function = lambda S: False
         elif f_bound is "furbo":
@@ -23,6 +32,10 @@ class BDDE:
         self.leaves_number = 0
         self.best_subgraph = []
 
+    def fb_greaterthan_f(self, S):
+        if len(S)>self.k:
+            return True
+
     def our_bound(self, S, samples):
         return cardinality_bound(S,self.k) or prob_cover(samples,S,min=True) >= prob_cover(self.best_subgraph)
 
@@ -32,29 +45,23 @@ class BDDE:
         self.best_score = -1
         self.best_subgraph = []
         self.leaves_number=0
+        self.initiate_minimums()
         for v in ListaNodi:
-            radice=v
-            self.root=radice
+            self.root=v
             B=nx.DiGraph()
             self.tree=B
             self.DEPTH([],v,[])
             self.G.remove_node(v)
 
             if len(B)>0:
-                leafs=[]
-                root=None
-                for n in B:
-                    if B.out_degree(n)==0:  # allora è una foglia
-                        leafs.append(n)
-                    if B.in_degree(n)==0:  # allora è la radice
-                        root=n
+                leafs = [n for n in B if B.out_degree(n)==0]
                 self.leaves_number+=len(leafs)
                 for n in leafs:
-                    path_to_leaf=list(nx.shortest_path(B,root,n))
+                    path_to_leaf=list(nx.shortest_path(B,self.root,n))
                     path_to_leaf=[node.data for node in path_to_leaf ]
-                    score=self.scoring_function(path_to_leaf)
+                    score = self.scoring_function(path_to_leaf)
 
-                    if score>self.best_score and len(path_to_leaf)==self.k:
+                    if len(path_to_leaf)==self.k and score>self.best_score:
                         self.best_score=score
                         self.best_subgraph=path_to_leaf
                         print("_________________")

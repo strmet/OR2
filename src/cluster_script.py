@@ -7,7 +7,7 @@ import getpass
 
 '''
     --- WARNING ---
-    FIRST TIME INFO, NECESSARY TODOs
+    FIRST TIME INFO, MANDATORY TODOs
     
     (1)     Se non hai mai avviato questo script, come prima cosa esegui il login:
             >>> ssh username@login.dei.unipd.it
@@ -16,10 +16,7 @@ import getpass
             (sì, la repository nel nostro spazio dei è necessaria)
             tl; dr: clonare la repository dentro la 'home' del nostro spazio sul DEI.
     
-    (2)     Se non l'hai già fatto, esegui:
-            >>> pip install --user networkx
-            
-            Per installare le librerie a noi necessarie
+    (2)     Per evitare inutili disagi, eseguire questo script sempre da dentro la cartella src/.
 '''
 
 # Parametri per l'esecuzione
