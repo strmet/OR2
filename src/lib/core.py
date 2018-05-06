@@ -10,14 +10,16 @@ class BDDE:
         self.root = 0
         self.samples = samples
         self.sample_size = len(self.samples)
-        max_ps = {sample: self.samples[sample][max(self.samples[sample], key=self.samples[sample].get)]
-                  for sample in self.samples}
-        self.min_qs = {sample: 1-max_ps[sample] for sample in max_ps}
+        self.prob = prob
+        if self.prob:
+            max_ps = {sample: self.samples[sample][max(self.samples[sample], key=self.samples[sample].get)]
+                      for sample in self.samples}
+            self.min_qs = {sample: 1-max_ps[sample] for sample in max_ps}
 
-        if prob:
+        if self.prob:
             self.scoring_function = lambda subgraph: prob_cover(self.samples,subgraph)
         else:
-            self.scoring_function = lambda subgraph: score_cover(self.samples,subgraph)
+            self.scoring_function = lambda subgraph: score_cover(self.samples,set(subgraph))
 
         self.best_score = -1
         self.leaves_number = 0
@@ -45,8 +47,9 @@ class BDDE:
 
         # if C is too large, prune it
         # if the bounding function can't reach the current best, prune it
+        # (only when using the probability version, tho)
 
-        return len(C)>self.k or self.fb(C) < self.best_score
+        return len(C)>self.k or (self.prob and self.fb(C) < self.best_score)
 
     def enumeration_algorithm(self):
 
@@ -179,20 +182,6 @@ def delta_removal(G, delta):
     return G
 
 
-def set_cover(patients, l_v):
-    return set([
-        p for p in patients
-        if genes_in_sample(l_v, patients[p])
-    ])
-
-
-def genes_in_sample(l_v, genes_list):
-    for v in l_v:
-        if v in genes_list:
-            return True
-    return False
-
-
 def cardinality_bound(S,k,samples=None):
         return len(S)>k
 
@@ -299,5 +288,13 @@ def prob_combinatorial_algorithm(G, k, patients, delta=0.8):
 def score_cover(patients, l_v):
     return len([
         p for p in patients
-        if genes_in_sample(l_v, patients[p])
+        if len(l_v & patients[p])>0
     ])
+
+
+def set_cover(patients, l_v):
+    return set([
+        p for p in patients
+        if len(l_v & patients[p])>0
+    ])
+
