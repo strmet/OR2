@@ -20,7 +20,7 @@ def main():
         else:
             C, P_C = combinatorial_algorithm(G,k,patients)
     elif strategy == 'enumerate':
-        BDDE_instance = BDDE(G, patients, f_bound=cardinality_bound, k=k, prob=parameters['prob'])
+        BDDE_instance = BDDE(G, patients, k=k, prob=parameters['prob'])
         BDDE_instance.enumeration_algorithm()
         C = BDDE_instance.best_subgraph
         P_C = BDDE_instance.best_score

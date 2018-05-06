@@ -134,6 +134,8 @@ def read_patients_prob(filename, genes_map, prob=True):
         if row["geneid"] in genes_map:
             patients[row["sampleid"]][genes_map[row["geneid"]]]=row["prob"]
 
+    patients = {p:patients[p] for p in patients if len(patients[p])>0}
+
     return patients
 
 

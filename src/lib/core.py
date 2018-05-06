@@ -2,63 +2,79 @@ import networkx as nx
 
 
 class BDDE:
-    def __init__(self, G, samples, k=2, delta=0.8, f_bound=None, prob=False):
+    def __init__(self, G, samples, k=2, delta=0.8, prob=False):
         self.G = G
         self.k = k
         self.delta = delta
         self.tree = nx.DiGraph()
         self.root = 0
         self.samples = samples
-        print(self.samples)
-        input()
-        # initiating the minimums \forall qs
-        self.min_qs = {sample: 1 for sample in self.samples}
-        print(self.min_qs)
-        input()
-        self.min_qs = {sample: min(sample) for sample in self.samples}
-        print(self.min_qs)
-        input()
-        if f_bound is None:  # default = no boundings
-            self.bounding_function = lambda S: False
-        elif f_bound is "furbo":
-            self.bounding_function = lambda S: self.our_bound(S,samples)
-        else:
-            self.bounding_function = lambda S: f_bound(S, self.k, self.samples)
+        self.sample_size = len(self.samples)
+        max_ps = {sample: self.samples[sample][max(self.samples[sample], key=self.samples[sample].get)]
+                  for sample in self.samples}
+        self.min_qs = {sample: 1-max_ps[sample] for sample in max_ps}
+
         if prob:
             self.scoring_function = lambda subgraph: prob_cover(self.samples,subgraph)
         else:
             self.scoring_function = lambda subgraph: score_cover(self.samples,subgraph)
+
         self.best_score = -1
         self.leaves_number = 0
         self.best_subgraph = []
 
-    def fb_greaterthan_f(self, S):
-        if len(S)>self.k:
-            return True
+    def fb(self, C):
+        summation = 0.0
+        c_size = len(C)
+        for j in self.samples:
+            prod = 1.0
+            for i in C:
+                prod *= 1.0-self.samples[j][i] if i in self.samples[j] else 1
 
-    def our_bound(self, S, samples):
-        return cardinality_bound(S,self.k) or prob_cover(samples,S,min=True) >= prob_cover(self.best_subgraph)
+            prod *= self.min_qs[j]**(self.k-c_size)
+            summation += prod
+
+        return self.sample_size - summation
+
+    def fb_greaterthan_f(self, C):
+        """
+        Returns True if the branch has to be pruned inside the BDDE algorithm
+        :param C: The current vertexes set to be evalued
+        :return: True if pruned, False otherwise
+        """
+
+        # if C is too large, prune it
+        # if the bounding function can't reach the current best, prune it
+
+        return len(C)>self.k or self.fb(C) < self.best_score
 
     def enumeration_algorithm(self):
 
-        ListaNodi=list(self.G.nodes)
+        vertices = list(self.G.nodes)
         self.best_score = -1
         self.best_subgraph = []
         self.leaves_number=0
-        self.initiate_minimums()
-        for v in ListaNodi:
+
+        for v in vertices:
             self.root=v
+            del self.tree
             B=nx.DiGraph()
             self.tree=B
             self.DEPTH([],v,[])
             self.G.remove_node(v)
 
             if len(B)>0:
-                leafs = [n for n in B if B.out_degree(n)==0]
-                self.leaves_number+=len(leafs)
-                for n in leafs:
-                    path_to_leaf=list(nx.shortest_path(B,self.root,n))
-                    path_to_leaf=[node.data for node in path_to_leaf ]
+                leaves=[]
+                root=None
+                for n in B:
+                    if B.out_degree(n) == 0:  # allora è una foglia
+                        leaves.append(n)
+                    if B.in_degree(n) == 0:  # allora è la radice
+                        root=n
+                self.leaves_number += len(leaves)
+                for n in leaves:
+                    path_to_leaf = list(nx.shortest_path(B,root,n))
+                    path_to_leaf = [node.data for node in path_to_leaf]
                     score = self.scoring_function(path_to_leaf)
 
                     if len(path_to_leaf)==self.k and score>self.best_score:
@@ -79,7 +95,7 @@ class BDDE:
             return None
 
         S1=S+[vn]
-        if self.bounding_function(S1):
+        if self.fb_greaterthan_f(S1):
             return None
 
         B=self.tree
@@ -92,7 +108,7 @@ class BDDE:
 
     def DEPTH(self, S,v,beta):
         S1=S+[v]
-        if self.bounding_function(S1):
+        if self.fb_greaterthan_f(S1):
             return None
 
         n=Nodo(v)
