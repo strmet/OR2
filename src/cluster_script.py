@@ -26,7 +26,7 @@ proteinsin = "../../data/hint+hi2012_index_file.txt"
 genesin = "../../data/hint+hi2012_edge_file.txt"
 probs = [False]  # Probabilistic version of the problem or not?
 strategy = ['combinatorial']  # Do we want to use the enumerate approach or the combinatorial one?
-ks = [5,6]  # On which ks do we want to test our algorithm?
+ks = [7]  # On which ks do we want to test our algorithm?
 delta = 0.8  # for now, delta doesn't really matter to the analysis
 time_out = 604800  # for now, for each execution, we're willing to wait 7 days per run, maximum
 
@@ -38,7 +38,7 @@ ssh = paramiko.SSHClient()
 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
 # Per evitare di scrivere il proprio username, se la macchina dalla quale lo sia avvia è "nota"
-if getpass.getuser() == 'venir':
+if getpass.getuser() == 'swervenir':
     pwd = str(getpass.getpass(prompt="Password: "))
     username = "venirluca"
 elif getpass.getuser() == 'iltuonomesultuoPC':

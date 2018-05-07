@@ -1,0 +1,87 @@
+_________________
+
+Best solution updated!
+Current C (ids):  [1, 8632, 2662, 9380]
+Current P_C (cardinality): 2.193130607398416
+_________________
+
+Best solution updated!
+Current C (ids):  [1, 347, 597, 7962]
+Current P_C (cardinality): 2.5855463735639432
+_________________
+
+Best solution updated!
+Current C (ids):  [1, 1632, 9191, 9118]
+Current P_C (cardinality): 4.466996164586305
+_________________
+
+Best solution updated!
+Current C (ids):  [1, 347, 2450, 4147]
+Current P_C (cardinality): 4.638592507823148
+_________________
+
+Best solution updated!
+Current C (ids):  [1, 347, 2592, 2350]
+Current P_C (cardinality): 8.530094529992198
+_________________
+
+Best solution updated!
+Current C (ids):  [1, 1632, 3361, 8821]
+Current P_C (cardinality): 34.78503969422667
+_________________
+
+Best solution updated!
+Current C (ids):  [1, 8632, 1928, 6780]
+Current P_C (cardinality): 37.795127458241836
+_________________
+
+Best solution updated!
+Current C (ids):  [1, 7958, 8821, 8962]
+Current P_C (cardinality): 39.990421489830396
+_________________
+
+Best solution updated!
+Current C (ids):  [1, 1632, 8821, 6780]
+Current P_C (cardinality): 64.01799627229684
+_________________
+
+Best solution updated!
+Current C (ids):  [5, 6995, 8821, 6780]
+Current P_C (cardinality): 65.6757508758879
+_________________
+
+Best solution updated!
+Current C (ids):  [5, 9177, 8821, 6780]
+Current P_C (cardinality): 66.45150543178636
+_________________
+
+Best solution updated!
+Current C (ids):  [37, 2432, 8821, 6780]
+Current P_C (cardinality): 68.7614861916714
+_________________
+
+Best solution updated!
+Current C (ids):  [37, 8821, 6780, 8962]
+Current P_C (cardinality): 69.95435029274938
+_________________
+
+Best solution updated!
+Current C (ids):  [37, 2622, 8821, 6780]
+Current P_C (cardinality): 83.1640421796385
+_________________
+
+Best solution updated!
+Current C (ids):  [79, 2622, 6278, 9030]
+Current P_C (cardinality): 91.27018679817115
+_________________
+
+Best solution updated!
+Current C (ids):  [2622, 6278, 9282, 9030]
+Current P_C (cardinality): 93.34075876683619
+Quante foglie?
+1855036
+_________________
+Final solution (ids):  [2622, 6278, 9282, 9030]
+Final solution (genes' names):  ['EGFR', 'PIK3R1', 'VAV2', 'TTN']
+Final solution cardinality:  93.34075876683619
+_________________

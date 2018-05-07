@@ -31,7 +31,7 @@ class BDDE:
         for j in self.samples:
             prod = 1.0
             for i in C:
-                prod *= 1.0-self.samples[j][i] if i in self.samples[j] else 1
+                prod *= (1.0-self.samples[j][i]) if i in self.samples[j] else 1
 
             prod *= self.min_qs[j]**(self.k-c_size)
             summation += prod

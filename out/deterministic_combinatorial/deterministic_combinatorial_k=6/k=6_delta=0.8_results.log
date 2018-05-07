@@ -1,0 +1,45 @@
+_________________
+
+Best solution updated!
+Current C (ids):  {1632, 1, 9101, 8821, 6780, 2622}
+Current P_C (cardinality): 142
+_________________
+
+Best solution updated!
+Current C (ids):  {9282, 3556, 5, 9030, 6951, 2622}
+Current P_C (cardinality): 156
+_________________
+
+Best solution updated!
+Current C (ids):  {6278, 9101, 14, 8821, 6780, 2622}
+Current P_C (cardinality): 165
+_________________
+
+Best solution updated!
+Current C (ids):  {9282, 3556, 36, 9030, 6278, 2622}
+Current P_C (cardinality): 173
+_________________
+
+Best solution updated!
+Current C (ids):  {5520, 9282, 8821, 37, 9030, 2622}
+Current P_C (cardinality): 181
+_________________
+
+Best solution updated!
+Current C (ids):  {6278, 9030, 9101, 79, 6780, 2622}
+Current P_C (cardinality): 195
+_________________
+
+Best solution updated!
+Current C (ids):  {9282, 9030, 6278, 6780, 9101, 2622}
+Current P_C (cardinality): 198
+_________________
+
+Best solution updated!
+Current C (ids):  {9282, 8821, 9030, 5864, 6780, 2622}
+Current P_C (cardinality): 205
+_________________
+Final solution (ids):  {9282, 8821, 9030, 5864, 6780, 2622}
+Final solution (genes' names):  ['VAV2', 'TP53', 'TTN', 'NUMB', 'PTEN', 'EGFR']
+Final solution cardinality:  205
+_________________
