@@ -38,5 +38,7 @@ def main():
     wf.plot_solution(high=True)
 
     wf.release()
+
+
 if __name__ == "__main__":
     main()

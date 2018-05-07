@@ -48,7 +48,7 @@ class WindFarm:
     # Class constructor
     def __init__(self):
 
-        # The model itself
+        # The CPLEX/DOCPLEX model itself
         self.__model = None
 
         # Model variables/parameters
@@ -60,7 +60,7 @@ class WindFarm:
         self.__flux_slack_start = 0
         self.__points = []
         self.__cables = []
-        self.c = 10
+        self.c = 7
 
         # Data counters
         self.__n_nodes = 0
@@ -257,7 +257,9 @@ class WindFarm:
                   * (self.__n_nodes**2),
             names=["f({0},{1})".format(i+1, j+1)
                    for i in range(self.__n_nodes)
-                   for j in range(self.__n_nodes)]
+                   for j in range(self.__n_nodes)],
+            lb=[0] * (self.__n_nodes**2),
+            ub=[max([cable.capacity for cable in self.__cables])] * (self.__n_nodes**2),
         )
 
         # Add x(i,j,k) variables
@@ -286,7 +288,9 @@ class WindFarm:
                 names=["s({0})".format(h+1)
                        for h, point in enumerate(self.__points)
                        if point.power < -0.5],
-                obj=[1e9] * self.__n_substations
+                obj=[1e9] * self.__n_substations,
+                lb=[0] * self.__n_substations,
+                ub=[self.__n_turbines-self.c] * self.__n_substations
             )
         else:
             # No variables should be added, then.
@@ -306,6 +310,7 @@ class WindFarm:
                 lb=[0] * self.__n_nodes
             )
         else:
+            # No variables should be added, then.
             self.__flux_slack_start = -1
 
         # No self-loop constraints on y(i,i) = 0 \forall i
@@ -325,13 +330,6 @@ class WindFarm:
             (self.__xpos(i,i,k), 0)
             for i in range(self.__n_nodes)
             for k in range(self.__n_cables)
-        ])
-
-        # Energy flow must be positive
-        self.__model.variables.set_lower_bounds([
-            (self.__fpos(i,j), 0)
-            for i in range(self.__n_nodes)
-            for j in range(self.__n_nodes)
         ])
 
         # Out-degree constraints (substations)
@@ -361,42 +359,28 @@ class WindFarm:
         )
 
         # Flow balancing constraint
-        if self.__flux_slack:
-            self.__model.linear_constraints.add(
-                lin_expr=[cplex.SparsePair(
-                    ind=[self.__fpos(h,j) for j in range(self.__n_nodes) if h!=j] +
-                        [self.__fpos(j,h) for j in range(self.__n_nodes) if j!=h] +
-                        [self.__flux_slackpos(h)],
-                    val=[1] * (self.__n_nodes - 1) + [-1] * (self.__n_nodes - 1) +
-                        [1]
-                )
-                    for h, point in enumerate(self.__points)
-                    if point.power >= 0.5
-                ],
-                senses=["E"] * self.__n_turbines,
-                rhs=[point.power for point in self.__points if point.power > 0.5]
+        self.__model.linear_constraints.add(
+            lin_expr=[cplex.SparsePair(
+                ind=[self.__fpos(h,j) for j in range(self.__n_nodes) if h!=j] +
+                    [self.__fpos(j,h) for j in range(self.__n_nodes) if j!=h] +
+                    ([self.__flux_slackpos(h)] if self.__flux_slack else []),
+                val=[1] * (self.__n_nodes - 1) + [-1] * (self.__n_nodes - 1) +
+                    ([1] if self.__flux_slack else [])
             )
-        else:
-            self.__model.linear_constraints.add(
-                lin_expr=[cplex.SparsePair(
-                    ind=[self.__fpos(h,j) for j in range(self.__n_nodes) if h!=j] +
-                        [self.__fpos(j,h) for j in range(self.__n_nodes) if j!=h],
-                    val=[1] * (self.__n_nodes - 1) + [-1] * (self.__n_nodes - 1)
-                )
-                    for h, point in enumerate(self.__points)
-                    if point.power >= 0.5
-                ],
-                senses=["E"] * self.__n_turbines,
-                rhs=[point.power for point in self.__points if point.power > 0.5]
-            )
+                for h, point in enumerate(self.__points)
+                if point.power >= 0.5
+            ],
+            senses=["E"] * self.__n_turbines,
+            rhs=[point.power for point in self.__points if point.power > 0.5]
+        )
 
         # Maximum number of cables linked to a substation
         self.__model.linear_constraints.add(
             lin_expr=[cplex.SparsePair(
                 ind=[self.__ypos(i,h) for i in range(self.__n_nodes)] +
-                    [self.__substation_slackpos(h)] if self.__substation_slack else [],
+                    ([self.__substation_slackpos(h)] if self.__substation_slack else []),
                 val=[1] * self.__n_nodes +
-                    [-1] if self.__substation_slack else []
+                    ([-1] if self.__substation_slack else [])
             )
                 for h,point in enumerate(self.__points)
                 if point.power < -0.5
@@ -486,7 +470,9 @@ class WindFarm:
             ((i+1,j+1)
              for i in range(self.__n_nodes)
              for j in range(self.__n_nodes)),
-            name="f%s"
+            name="f%s",
+            ub=max([cable.capacity for cable in self.__cables]),
+            lb=0
         )
 
         # Add x(i,j,k) variables
@@ -499,18 +485,34 @@ class WindFarm:
             name="x%s"
         )
 
-        # Add s(h) slack variables
+        # Slack variables on parameter C
         if self.__substation_slack:
             self.__substation_slack_start = self.__model.get_statistics().number_of_variables
             self.__model.continuous_var_list(
                 (h+1
                  for h, point in enumerate(self.__points)
                  if point.power < -0.5),
-                name="s(%s)"  # The parenthesis are necessary here, since this set of variables is 1-dimensional
+                name="s1(%s)",
+                ub=self.__n_turbines-self.c,
+                lb=0
             )
         else:
             # No slack variables, then.
             self.__substation_slack_start = -1
+
+        # Slack variables on flux
+        if self.__flux_slack:
+            # Add slack variables for flux
+            self.__flux_slack_start = self.__model.get_statistics().number_of_variables
+            self.__model.continuous_var_list(
+                (h+1 for h in range(self.__n_nodes)),
+                name="s2(%s)",
+                ub=max([cable.capacity for cable in self.__cables]),
+                lb=0
+            )
+        else:
+            # No variables should be added, then.
+            self.__flux_slack_start = -1
 
         # No self-loops constraints on y(i,i) variables (\forall i)
         self.__model.add_constraints(
@@ -562,7 +564,8 @@ class WindFarm:
                 for i in range(self.__n_nodes)
             )
             <=
-            self.c + self.__model.get_var_by_index(self.__substation_slackpos(h))
+            self.c + (self.__model.get_var_by_index(self.__substation_slackpos(h))
+                      if self.__substation_slack else 0)
             for h,point in enumerate(self.__points)
             if point.power < -0.5
         )
@@ -578,6 +581,8 @@ class WindFarm:
                 self.__model.get_var_by_index(self.__fpos(j,h))
                 for j in range(self.__n_nodes)
             ) + self.__points[h].power
+            - (self.__model.get_var_by_index(self.__flux_slackpos(h))
+               if self.__flux_slack else 0)
             for h,point in enumerate(self.__points)
             if point.power > 0.5
         )
@@ -607,8 +612,8 @@ class WindFarm:
         )
 
         # No-crossing lazy constraints don't work in docplex.
-        if self.cross_mode == 'lazy':
-            raise ValueError("No lazy constraints admitted in docplex.")
+        if not self.cross_mode == 'no':
+            raise ValueError("No crossings when using docplex.")
 
         # Objective function
         self.__model.minimize(
@@ -618,6 +623,15 @@ class WindFarm:
                 for i, u in enumerate(self.__points)
                 for j, v in enumerate(self.__points)
             )
+            + (self.__model.sum(
+                1e9 * self.__model.get_var_by_index(self.__substation_slackpos(h))
+                for h,point in enumerate(self.__points)
+                if point.power < 0.5
+            ) if self.__substation_slack else 0)
+            + (self.__model.sum(
+                1e9 * self.__model.get_var_by_index(self.__flux_slackpos(h))
+                for h in range(self.__n_nodes)
+            ) if self.__flux_slack else 0)
         )
 
         # Adding the parameters to the model
@@ -1086,7 +1100,7 @@ class WindFarm:
         for i in range(3):
             self.__exact_solve()
             if i == 2:
-                initial_best_bound = 0 # TODO
+                initial_best_bound = 0  # TODO
 
         while not optimum and time.time() - starting_time < self.__overall_wait_time:
 
@@ -1138,7 +1152,7 @@ class WindFarm:
 
         if self.__cluster:
             self.__model.parameters.randomseed = random.randint(0, sys.maxsize)
-            self.__model.parameters.advance.set(0)
+            self.__model.parameters.advance.set(0)  # da sistemare nel loop
             print("Advanced model:", self.__model.parameters.advance.get())
             print("Dataset:", self.__data_select)
 
