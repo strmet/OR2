@@ -285,7 +285,7 @@ class WindFarm:
             self.__model.variables.add(
                 types=[self.__model.variables.type.continuous]
                       * self.__n_substations,
-                names=["s({0})".format(h+1)
+                names=["s1({0})".format(h+1)
                        for h, point in enumerate(self.__points)
                        if point.power < -0.5],
                 obj=[1e9] * self.__n_substations,
@@ -302,12 +302,12 @@ class WindFarm:
             self.__flux_slack_start = self.__model.variables.get_num()
             self.__model.variables.add(
                 types=[self.__model.variables.type.continuous]
-                      * self.__n_turbines,
-                names=["s2({0})".format(h + 1)
-                       for h in range(self.__n_turbines)],
-                obj=[1e9] * self.__n_turbines,
-                ub=[max([cable.capacity for cable in self.__cables])] * self.__n_turbines,
-                lb=[0] * self.__n_turbines
+                      * self.__n_nodes,
+                names=["s2({0})".format(h+1)
+                       for h in range(self.__n_nodes)],
+                obj=[1e9] * self.__n_nodes,
+                ub=[max([cable.capacity for cable in self.__cables])] * self.__n_nodes,
+                lb=[0] * self.__n_nodes
             )
         else:
             # No variables should be added, then.
@@ -823,7 +823,6 @@ class WindFarm:
         plt.show()
 
     def __get_violated_edges(self, selected_edges):
-
         """
 
         When called, this function returns a list of violations, which are a list of y_pos indexes,
@@ -838,25 +837,22 @@ class WindFarm:
         constraints_to_be_added = []
 
         for e1 in selected_edges:
-            for k in range(self.__n_nodes):
-                # Get only the selected, out-going edges from the point indexed by k.
-                delta = [e for e in selected_edges if e.s == k]
-
-                # Filter out anything that goes/comes from a and b.
-                delta = [e2 for e2 in delta
-                         if not (e2.s == e1.s or e2.d == e1.s or e2.s == e1.d or e2.d == e1.d)]
-
-                # Extract the violated edges only.
-                violating_edges = [e2
-                                   for e2 in delta
-                                   if WindFarm.are_crossing(self.__points[e1.s],
+            edges_violating_e1 = [e2 for e2 in selected_edges
+                                  # Filter out anything that goes/comes from a and b.
+                                  if not (e2.s == e1.s or e2.d == e1.s or e2.s == e1.d or e2.d == e1.d)
+                                  # Extract the violated edges only.
+                                  and WindFarm.are_crossing(self.__points[e1.s],
                                                             self.__points[e1.d],
                                                             self.__points[e2.s],
-                                                            self.__points[e2.d])
-                                   ]
-                if len(violating_edges) > 0:
-                    violating_edges = [e for e in violating_edges]
-                    constraints_to_be_added.append([self.__EdgeSol(self.__ypos(e1.s, e1.d), e1.s, e1.d), self.__EdgeSol(self.__ypos(e1.d, e1.s), e1.d, e1.s)] + violating_edges)
+                                                            self.__points[e2.d])]
+
+            if len(edges_violating_e1) > 0:
+                for violating_edge in edges_violating_e1:
+                    constraints_to_be_added.append([
+                        violating_edge,
+                        self.__EdgeSol(self.__ypos(e1.s, e1.d), e1.s, e1.d),
+                        self.__EdgeSol(self.__ypos(e1.d, e1.s), e1.d, e1.s)
+                    ])
 
         return constraints_to_be_added
 
