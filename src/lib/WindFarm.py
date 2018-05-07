@@ -302,12 +302,12 @@ class WindFarm:
             self.__flux_slack_start = self.__model.variables.get_num()
             self.__model.variables.add(
                 types=[self.__model.variables.type.continuous]
-                      * self.__n_nodes,
+                      * self.__n_turbines,
                 names=["s2({0})".format(h + 1)
-                       for h in range(self.__n_nodes)],
-                obj=[1e9] * self.__n_nodes,
-                ub=[max([cable.capacity for cable in self.__cables])] * self.__n_nodes,
-                lb=[0] * self.__n_nodes
+                       for h in range(self.__n_turbines)],
+                obj=[1e9] * self.__n_turbines,
+                ub=[max([cable.capacity for cable in self.__cables])] * self.__n_turbines,
+                lb=[0] * self.__n_turbines
             )
         else:
             # No variables should be added, then.
@@ -505,7 +505,7 @@ class WindFarm:
             # Add slack variables for flux
             self.__flux_slack_start = self.__model.get_statistics().number_of_variables
             self.__model.continuous_var_list(
-                (h+1 for h in range(self.__n_nodes)),
+                (h+1 for h in range(self.__n_turbines)),
                 name="s2(%s)",
                 ub=max([cable.capacity for cable in self.__cables]),
                 lb=0
@@ -630,7 +630,7 @@ class WindFarm:
             ) if self.__substation_slack else 0)
             + (self.__model.sum(
                 1e9 * self.__model.get_var_by_index(self.__flux_slackpos(h))
-                for h in range(self.__n_nodes)
+                for h in range(self.__n_turbines)
             ) if self.__flux_slack else 0)
         )
 
