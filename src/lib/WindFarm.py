@@ -290,7 +290,7 @@ class WindFarm:
                        if point.power < -0.5],
                 obj=[1e9] * self.__n_substations,
                 lb=[0] * self.__n_substations,
-                ub=[self.__n_turbines-self.c] * self.__n_substations
+                ub=[self.__n_turbines] * self.__n_substations
             )
         else:
             # No variables should be added, then.
@@ -493,7 +493,7 @@ class WindFarm:
                  for h, point in enumerate(self.__points)
                  if point.power < -0.5),
                 name="s1(%s)",
-                ub=self.__n_turbines-self.c,
+                ub=self.__n_turbines,
                 lb=0
             )
         else:
