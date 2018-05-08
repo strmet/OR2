@@ -374,6 +374,9 @@ class WindFarm:
             rhs=[point.power for point in self.__points if point.power > 0.5]
         )
 
+        #self.__model.parameters.mip.tolerances.mipgap.set(0.998)
+        #print(self.__model.parameters.mip.tolerances.mipgap.get())
+
         # Maximum number of cables linked to a substation
         self.__model.linear_constraints.add(
             lin_expr=[cplex.SparsePair(
@@ -678,7 +681,7 @@ class WindFarm:
             raise ValueError("Unknown interface. I've got: " + str(self.__interface))
 
         if var == 'x':
-            sol = [self.__CableSol(self.__xpos(i, j, k), i, j, k) # Perchè k + 1?
+            sol = [self.__CableSol(self.__xpos(i, j, k), i, j, k)  # Perché k + 1?
                    for i in range(self.__n_nodes)
                    for j in range(self.__n_nodes)
                    for k in range(self.__n_cables)
@@ -836,22 +839,22 @@ class WindFarm:
 
         constraints_to_be_added = []
 
-        for e1 in selected_edges:
-            edges_violating_e1 = [e2 for e2 in selected_edges
-                                  # Filter out anything that goes/comes from a and b.
-                                  if not (e2.s == e1.s or e2.d == e1.s or e2.s == e1.d or e2.d == e1.d)
+        for ab in selected_edges:
+            edges_violating_ab = [e2 for e2 in selected_edges
+                                  # Filter out anything that goes to/comes from a and b.
+                                  if not (e2.s == ab.s or e2.d == ab.s or e2.s == ab.d or e2.d == ab.d)
                                   # Extract the violated edges only.
-                                  and WindFarm.are_crossing(self.__points[e1.s],
-                                                            self.__points[e1.d],
+                                  and WindFarm.are_crossing(self.__points[ab.s],
+                                                            self.__points[ab.d],
                                                             self.__points[e2.s],
                                                             self.__points[e2.d])]
 
-            if len(edges_violating_e1) > 0:
-                for violating_edge in edges_violating_e1:
+            if len(edges_violating_ab) > 0:
+                for violating_edge in edges_violating_ab:
                     constraints_to_be_added.append([
                         violating_edge,
-                        self.__EdgeSol(self.__ypos(e1.s, e1.d), e1.s, e1.d),
-                        self.__EdgeSol(self.__ypos(e1.d, e1.s), e1.d, e1.s)
+                        self.__EdgeSol(self.__ypos(ab.s, ab.d), ab.s, ab.d),
+                        self.__EdgeSol(self.__ypos(ab.d, ab.s), ab.d, ab.s)
                     ])
 
         return constraints_to_be_added
@@ -887,7 +890,8 @@ class WindFarm:
         Adds the violating constraint by index.
         Crossings contains the index of every edge variable to be added.
 
-        :param crossings: a list [idx_1, ..., idx_n] where idx_i are the indexes of the conflicting edges
+        :param crossings: a list [EdgeSol_1, ..., EdgeSol_n],
+        where EdgeSol_i are the conflicting edges, containing their idx and names
         :return: None
 
         """
@@ -947,7 +951,7 @@ class WindFarm:
                             help='type --noslack if you do not want the slack on the flux')
         parser.add_argument('--crossings', choices=['no', 'lazy', 'loop', 'callback'],
                             help='Choose how you want to address the crossing problem')
-        parser.add_argument('--metaheuristic', choices=['hard'],
+        parser.add_argument('--metaheuristic', choices=['hard', 'soft'],
                             help='Choose one metaheuristic method to wrap the execution')
         parser.add_argument('--overall_wait_time', type=int,
                             help='Used in hard fixing and loop method to stop the execution')
@@ -971,8 +975,12 @@ class WindFarm:
                           ParseWarning)
             self.__interface = 'cplex'
 
-        if args.rins > -2:
-            self.__rins = args.rins
+        if args.rins:
+            if args.rins <= -2:
+                warnings.warn("RINS parameter given is not valid. Given: " + str(args.rins) +
+                              ". Using the default value: " + str(self.__rins))
+            else:
+                self.__rins = args.rins
 
         if args.timeout:
             self.time_limit = args.timeout
@@ -1082,7 +1090,7 @@ class WindFarm:
 
         """
 
-        Solve the problem using the hard fixing metaheuristic
+        Solve the problem using the hard fixing math-heuristic
 
         :return: None
 
@@ -1096,7 +1104,8 @@ class WindFarm:
         for i in range(3):
             self.__exact_solve()
             if i == 2:
-                initial_best_bound = 0  # TODO
+                initial_best_bound = self.__model.parameters.mip.tolerances.mipgap.get()
+                # TODO
 
         while not optimum and time.time() - starting_time < self.__overall_wait_time:
 
@@ -1134,6 +1143,54 @@ class WindFarm:
         print(time.time() - starting_time)
         #self.plot_solution(self.__get_solution(var='x'))
 
+    def __soft_fix(self):
+        """
+
+        Solve the problem using the soft fixing math-heuristic
+
+        :return: None
+
+        """
+
+        optimum = False     # "has the optimum been reached?"
+        starting_time = time.time()
+        k = 0.60
+        initial_best_bound = 0  # ???
+
+        for i in range(3):
+            self.__exact_solve()
+            if i == 2:  # ???
+                initial_best_bound = 0  # TODO ???
+
+        while not optimum and time.time() - starting_time < self.__overall_wait_time:
+
+            selected_edges = self.__get_solution(var='y')
+            self.plot_solution(self.__get_solution(var='x'))
+
+            self.__model.linear_constraints.add(
+                lin_expr=[cplex.SparsePair(
+                    ind=[edge.idx for edge in selected_edges],
+                    val=[1] * len(selected_edges)
+                )],
+                senses=["G"],
+                rhs=[self.__n_nodes*(1-k)-1]
+            )
+
+            self.__exact_solve()
+
+            if self.__model.solution.get_status() == self.__model.solution.status.MIP_optimal:
+                optimum = True
+
+            if self.__best_incumbent > self.__model.solution.get_objective_value():
+                self.__best_sol = self.__get_solution()
+                self.__best_incumbent = self.__model.solution.get_objective_value()
+
+            k -= 0.05
+            k = max(k, 0.3)
+
+        print(time.time() - starting_time)
+        self.plot_solution(self.__get_solution(var='x'))
+
     def solve(self):
 
         """
@@ -1156,6 +1213,10 @@ class WindFarm:
             self.__exact_solve()
         elif self.__metaheuristic == 'hard':
             self.__hard_fix()
+        elif self.__metaheuristic == 'soft':
+            self.__soft_fix()
+        else:
+            raise ValueError("Unrecognized heuristic technique; given: " + str(self.__metaheuristic))
 
     def release(self):
 

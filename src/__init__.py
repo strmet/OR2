@@ -20,9 +20,10 @@ def main():
 
     wf.read_input()
 
+    print(wf.data_select)
+    input()
     # Builds the model with such
     wf.build_model()
-
     # Starts the CPLEX/DOCPLEX solver
     print("Solving...")
     wf.solve()
