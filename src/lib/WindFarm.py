@@ -374,8 +374,8 @@ class WindFarm:
             rhs=[point.power for point in self.__points if point.power > 0.5]
         )
 
-        #self.__model.parameters.mip.tolerances.mipgap.set(0.998)
-        #print(self.__model.parameters.mip.tolerances.mipgap.get())
+        # self.__model.parameters.mip.tolerances.mipgap.set(0.998)
+        # print(self.__model.parameters.mip.tolerances.mipgap.get())
 
         # Maximum number of cables linked to a substation
         self.__model.linear_constraints.add(
@@ -1156,12 +1156,13 @@ class WindFarm:
         starting_time = time.time()
         k = 0.60
         initial_best_bound = 0  # ???
-
+        self.__model.parameters.advance.set(1)
         for i in range(3):
             self.__exact_solve()
             if i == 2:  # ???
                 initial_best_bound = 0  # TODO ???
 
+        gap = self.__model.solution.MIP.get_mip_relative_gap()
         while not optimum and time.time() - starting_time < self.__overall_wait_time:
 
             selected_edges = self.__get_solution(var='y')
@@ -1205,7 +1206,7 @@ class WindFarm:
 
         if self.__cluster:
             self.__model.parameters.randomseed = random.randint(0, sys.maxsize)
-            self.__model.parameters.advance.set(0)  # da sistemare nel loop
+            self.__model.parameters.advance.set(0)  # TODO da sistemare nel loop
             print("Advanced model:", self.__model.parameters.advance.get())
             print("Dataset:", self.__data_select)
 

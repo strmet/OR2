@@ -40,4 +40,3 @@ class LazyCallback(LazyConstraintCallback):
 
         # Restore full parallelism
         self.model.parameters.threads.set(multiprocessing.cpu_count())
-
