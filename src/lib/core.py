@@ -2,28 +2,32 @@ import networkx as nx
 
 
 class BDDE:
-    def __init__(self, G, samples, k=2, delta=0.8, prob=False):
+    def __init__(self, G, samples, k=2, delta=0.8, prob=False, starting_score=-1, starting_solution=[]):
         self.G = G
         self.k = k
         self.delta = delta
-        self.tree = nx.DiGraph()
-        self.root = 0
+        self.tree = None
+        self.root = None
         self.samples = samples
         self.sample_size = len(self.samples)
         self.prob = prob
         if self.prob:
-            max_ps = {sample: self.samples[sample][max(self.samples[sample], key=self.samples[sample].get)]
-                      for sample in self.samples}
-            self.min_qs = {sample: 1-max_ps[sample] for sample in max_ps}
-
-        if self.prob:
+            qs = {
+                s: {gene: 1 - self.samples[s][gene]
+                    for gene in self.samples[s]}
+                for s in self.samples
+            }
+            self.min_qs = {
+                s: qs[s][min(qs[s], key=qs[s].get)]
+                for s in qs
+            }
             self.scoring_function = lambda subgraph: prob_cover(self.samples,subgraph)
         else:
             self.scoring_function = lambda subgraph: score_cover(self.samples,set(subgraph))
 
-        self.best_score = -1
+        self.best_score = starting_score
         self.leaves_number = 0
-        self.best_subgraph = []
+        self.best_subgraph = starting_solution
 
     def fb(self, C):
         summation = 0.0
@@ -40,54 +44,47 @@ class BDDE:
 
     def fb_greaterthan_f(self, C):
         """
-        Returns True if the branch has to be pruned inside the BDDE algorithm
+        Returns True if the branch has to be pruned inside the BDDE algorithm.
+        Furthermore, it evaluates leaves.
         :param C: The current vertexes set to be evalued
         :return: True if pruned, False otherwise
         """
-
-        # if C is too large, prune it
-        # if the bounding function can't reach the current best, prune it
-        # (only when using the probability version, tho)
-
-        return len(C)>self.k or (self.prob and self.fb(C) < self.best_score)
+        if len(C)>self.k:
+            # Prune it if it's too big
+            return True
+        elif len(C)<self.k:
+            # Prune it if the bounding function can't reach the current best,
+            # but do it only when using the probability version.
+            return self.prob and self.fb(C)<self.best_score
+        else:
+            # This means we've reached a leaf.
+            # We should evaluate it, as it wasn't previously pruned!
+            score = self.scoring_function(C)
+            self.leaves_number+=1
+            if score>self.best_score:
+                self.best_score = score
+                self.best_subgraph = C
+                print("_________________")
+                print()
+                print("Best solution updated!")
+                print("Current C (ids): ", self.best_subgraph)
+                print("Current P_C (cardinality):", self.best_score)
+            # No need to go further.
+            return True
 
     def enumeration_algorithm(self):
 
-        vertices = list(self.G.nodes)
-        self.best_score = -1
-        self.best_subgraph = []
+        sorted_by_degree_vertices = [v[0] for v in sorted(self.G.degree, key=lambda x: x[1])]
         self.leaves_number=0
 
-        for v in vertices:
+        for idx,v in enumerate(sorted_by_degree_vertices):
             self.root=v
-            del self.tree
-            B=nx.DiGraph()
-            self.tree=B
+            self.tree=nx.DiGraph()
             self.DEPTH([],v,[])
             self.G.remove_node(v)
 
-            if len(B)>0:
-                leaves=[]
-                root=None
-                for n in B:
-                    if B.out_degree(n) == 0:  # allora è una foglia
-                        leaves.append(n)
-                    if B.in_degree(n) == 0:  # allora è la radice
-                        root=n
-                self.leaves_number += len(leaves)
-                for n in leaves:
-                    path_to_leaf = list(nx.shortest_path(B,root,n))
-                    path_to_leaf = [node.data for node in path_to_leaf]
-                    score = self.scoring_function(path_to_leaf)
-
-                    if len(path_to_leaf)==self.k and score>self.best_score:
-                        self.best_score=score
-                        self.best_subgraph=path_to_leaf
-                        print("_________________")
-                        print()
-                        print("Best solution updated!")
-                        print("Current C (ids): ", self.best_subgraph)
-                        print("Current P_C (cardinality):", self.best_score)
+            del self.tree
+            del self.root
 
         print("Quante foglie?")
         print(self.leaves_number)
@@ -101,12 +98,14 @@ class BDDE:
         if self.fb_greaterthan_f(S1):
             return None
 
-        B=self.tree
-        n1=Nodo(vn)
+        n1=n
         for nxx in self.getNodesFromBranch(n):
             n2=self.BREADTH(S1,nxx,U)
             if n2 is not None:
-                B.add_edge(n1,n2)
+                self.tree.add_edge(n1,n2)
+                del n2
+
+        del S1
         return n1
 
     def DEPTH(self, S,v,beta):
@@ -119,32 +118,36 @@ class BDDE:
 
         xn=self.getxn(S,v)
         xn.sort(reverse=True)
-        B=self.tree
         for i in range(0,len(beta),1):
             n1=self.BREADTH(S1,beta[i],xn)
             if n1 is not None:
-                B.add_edge(n,n1)
+                self.tree.add_edge(n,n1)
                 beta1.append(n1)
+                del n1
         for v in xn:
             n1=self.DEPTH(S1,v,beta1)
             if n1 is not None:
-                B.add_edge(n,n1)
+                self.tree.add_edge(n,n1)
                 beta1.append(n1)
+                del n1
+        del xn
+        del beta1
+        del beta
+        del S1
         return n
 
     def getNodesFromBranch(self, n):
-        B=self.tree
         W=[]
-        neighbors=B.neighbors(n)
+        neighbors=self.tree[n]
         for v in neighbors:
-            if B.has_edge(n,v):
+            if self.tree.has_edge(n,v):
                 W.append(v)
+        del neighbors
         return W
 
     def getxn(self, S,v):
-        neighbors=self.G.neighbors(v)
         L=nx.Graph()
-        L.add_nodes_from(neighbors)
+        L.add_nodes_from(self.G.neighbors(v))
 
         if self.root in L:
             L.remove_node(self.root)
@@ -166,6 +169,7 @@ class Nodo(object):
 
 def delta_removal(G, delta):
     """
+    DEPRECATED. We're not even using this version of the problem.
     :param G: input graph
     :param delta: threshold
     :return: the graph G_I obtained from G by removing any edge with weight < delta
