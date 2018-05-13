@@ -1,6 +1,6 @@
 # our own libraries
-from lib.WindFarm import *
-
+from lib.WindFarm import WindFarm
+from lib.Heuristics import Heuristics
 
 def main():
 
@@ -13,7 +13,7 @@ def main():
         - build the input files
         - build the output folders
     """
-
+    '''
     wf = WindFarm()
     # Reads the turbines and the cables file
     wf.parse_command_line()
@@ -34,9 +34,28 @@ def main():
     #inst.write_solutions()
 
     # Plotting our solution
-    wf.plot_solution(high=True)
+    #wf.plot_solution(high=True)
 
-    wf.release()
+    #wf.release()
+
+    '''
+    wf2 = Heuristics()
+
+    wf2.parse_command_line()
+
+    wf2.read_input()
+
+    edges = wf2.MST_randomized_costs(delta_interval=0.1)
+
+    prec, succ, graph = wf2.direct_mst(edges)
+
+    wf2.plot(graph)
+
+    edges = wf2.grasp(num_edges=5)
+
+    prec, succ, graph = wf2.direct_mst(edges)
+
+    wf2.plot(graph)
 
 
 if __name__ == "__main__":
