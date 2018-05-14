@@ -94,19 +94,19 @@ class BDDE:
         return count
 
     def enumeration_algorithm(self):
-        sorted_by_degree_vertices = [(t[0], self.how_many_mins(t[0]))
+        sorted_vertices = [(t[0], self.how_many_mins(t[0]))
                                      for t in sorted(self.G.degree,
                                                      key=lambda t: t[1])]
-        sorted_by_minimum = [(t[0], self.how_many_mins(t[0]), self.G.degree(t[0]))
-                             for t in sorted(sorted_by_degree_vertices,
+        sorted_vertices = [(t[0], t[1], self.G.degree(t[0]))
+                             for t in sorted(sorted_vertices,
                                              key=lambda t: t[1],
                                              reverse=True)]
 
-        sorted_by_minimum = [t[0] for t in sorted_by_minimum]
+        sorted_vertices = [t[0] for t in sorted_vertices]
         self.leaves_number=0
         print("BDDE starts now:")
 
-        for v in sorted_by_minimum:
+        for v in sorted_vertices:
             self.root=v
             self.tree=nx.DiGraph()
             self.DEPTH([],v,[])
