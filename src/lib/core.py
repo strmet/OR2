@@ -17,10 +17,14 @@ class BDDE:
                     for gene in self.samples[s]}
                 for s in self.samples
             }
-            self.min_qs = {
-                s: qs[s][min(qs[s], key=qs[s].get)]
+            self.sorted_qs = {
+                s: sorted(qs[s], key=qs[s].get)
                 for s in qs
             }
+            """self.min_qs = {
+                s: qs[s][min(qs[s], key=qs[s].get)]
+                for s in qs
+            }"""
             self.scoring_function = lambda subgraph: prob_cover(self.samples,subgraph)
         else:
             self.scoring_function = lambda subgraph: score_cover(self.samples,set(subgraph))
@@ -32,12 +36,18 @@ class BDDE:
     def fb(self, C):
         summation = 0.0
         c_size = len(C)
+
         for j in self.samples:
             prod = 1.0
             for i in C:
                 prod *= (1.0-self.samples[j][i]) if i in self.samples[j] else 1
 
-            prod *= self.min_qs[j]**(self.k-c_size)
+            length = min(len(self.sorted_qs[j]),(self.k-c_size))
+
+            for i in range(length):
+                if self.sorted_qs[j][i] not in C:
+                    prod *= 1.0-self.samples[j][self.sorted_qs[j][i]]
+
             summation += prod
 
         return self.sample_size - summation
@@ -49,8 +59,12 @@ class BDDE:
         :param C: The current vertexes set to be evalued
         :return: True if pruned, False otherwise
         """
+
         if len(C)>self.k:
-            # Prune it if it's too big
+            # Prune it if it's too big:
+            # this will never actually happen,
+            # since we prune whenever len(C)==k
+            # (see below)
             return True
         elif len(C)<self.k:
             # Prune it if the bounding function can't reach the current best,
@@ -72,19 +86,39 @@ class BDDE:
             # No need to go further.
             return True
 
+    def how_many_mins(self, v):
+        count=0
+        for s in self.sorted_qs:
+            if self.sorted_qs[s][0] == v:
+                count+=1
+        return count
+
     def enumeration_algorithm(self):
+        sorted_by_degree_vertices = [(t[0], self.how_many_mins(t[0]))
+                                     for t in sorted(self.G.degree,
+                                                     key=lambda t: t[1])]
+        sorted_by_minimum = [(t[0], self.how_many_mins(t[0]), self.G.degree(t[0]))
+                             for t in sorted(sorted_by_degree_vertices,
+                                             key=lambda t: t[1],
+                                             reverse=True)]
 
-        sorted_by_degree_vertices = [v[0] for v in sorted(self.G.degree, key=lambda x: x[1])]
+        sorted_by_minimum = [t[0] for t in sorted_by_minimum]
         self.leaves_number=0
+        print("BDDE starts now:")
 
-        for idx,v in enumerate(sorted_by_degree_vertices):
+        for v in sorted_by_minimum:
             self.root=v
             self.tree=nx.DiGraph()
             self.DEPTH([],v,[])
             self.G.remove_node(v)
 
+            # Removing whatever we don't use anymore
             del self.tree
             del self.root
+
+            # Deleting the occurrences in the sorted dict, since we've removed v.
+            for s in self.sorted_qs:
+                self.sorted_qs[s] = [vertex for vertex in self.sorted_qs[s] if vertex!=v]
 
         print("Quante foglie?")
         print(self.leaves_number)

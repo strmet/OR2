@@ -64,6 +64,7 @@ def parse_command_line():
         'timeout': 10e12,  # for now, this will be ignored
         'prob': False,
         'strategy': 'combinatorial',
+        'bestsol': -1,
         'outfolder': default_folder  # for now, this will be ignored
     }
 
@@ -80,6 +81,7 @@ def parse_command_line():
     parser.add_argument('--timeout', type=int, help='timeout (seconds) in which the optimizer will stop iterating')
     parser.add_argument('--outfolder', type=str, help='The name (only!) of the folder to be created inside' +
                                                       'the \'$project_path\'/out/ directory')
+    parser.add_argument('--bestsol', type=float, help='The previous (k-1) best solution score')
 
     args = parser.parse_args()
 
@@ -93,6 +95,9 @@ def parse_command_line():
         if not (args.k>=1) or type(args.k)!=int:
             raise ValueError("The given 'k' is not a valid value (i.e. integer greater than 1). Given: " + str(args.k))
         parameters['timeout'] = args.timeout
+
+    if args.bestsol:
+        parameters['bestsol'] = float(args.bestsol)
 
     if args.k:
         if not (args.k>=1) or type(args.k)!=int:
