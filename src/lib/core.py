@@ -1,6 +1,5 @@
 import networkx as nx
 
-
 class BDDE:
     def __init__(self, G, samples, k=2, delta=0.8, prob=False, starting_score=-1, starting_solution=[]):
         self.G = G
@@ -21,10 +20,15 @@ class BDDE:
                 s: sorted(qs[s], key=qs[s].get)
                 for s in qs
             }
-            """self.min_qs = {
-                s: qs[s][min(qs[s], key=qs[s].get)]
-                for s in qs
-            }"""
+            self.sort_by_degree = [[t[0], self.how_many_mins(t[0]), t[1]]
+                                   for t in sorted(self.G.degree,
+                                                   key=lambda t: t[1])]
+            self.genes_dict = {a[1]: [t[0]
+                                      for t in self.sort_by_degree
+                                      if t[1]==a[1]]
+                               for a in self.sort_by_degree
+                               if a[1] != 0
+                               }
             self.scoring_function = lambda subgraph: prob_cover(self.samples,subgraph)
         else:
             self.scoring_function = lambda subgraph: score_cover(self.samples,set(subgraph))
@@ -45,7 +49,7 @@ class BDDE:
             length = min(len(self.sorted_qs[j]),(self.k-c_size))
 
             for i in range(length):
-                if self.sorted_qs[j][i] not in C:
+                if not self.sorted_qs[j][i] in C:
                     prod *= 1.0-self.samples[j][self.sorted_qs[j][i]]
 
             summation += prod
@@ -93,19 +97,8 @@ class BDDE:
                 count+=1
         return count
 
-    def enumeration_algorithm(self):
-        sorted_vertices = [(t[0], self.how_many_mins(t[0]))
-                                     for t in sorted(self.G.degree,
-                                                     key=lambda t: t[1])]
-        sorted_vertices = [(t[0], t[1], self.G.degree(t[0]))
-                             for t in sorted(sorted_vertices,
-                                             key=lambda t: t[1],
-                                             reverse=True)]
-
-        sorted_vertices = [t[0] for t in sorted_vertices]
-        self.leaves_number=0
-        print("BDDE starts now:")
-
+    def det_enumeration_algorithm(self):
+        sorted_vertices = [t[0] for t in sorted(self.G.degree, key=lambda t: t[1])]
         for v in sorted_vertices:
             self.root=v
             self.tree=nx.DiGraph()
@@ -117,8 +110,57 @@ class BDDE:
             del self.root
 
             # Deleting the occurrences in the sorted dict, since we've removed v.
+            for s in self.samples:
+                try:
+                    self.samples[s].remove(v)
+                except KeyError:
+                    pass
+
+    def prob_enumeration_algorithm(self):
+
+        # vertex : #(minimums)
+        v_howmany = {t[0]: t[1] for t in self.sort_by_degree}
+        self.leaves_number=0
+        print("BDDE starts now:")
+        while len(self.genes_dict)>0:
+            i = max(self.genes_dict)
+
+            v = self.genes_dict[i][0]
+            self.root=v
+            self.tree=nx.DiGraph()
+            # Actual BDDE call:
+            self.DEPTH([],v,[])
+
+            # Removing whatever we don't use anymore
+            self.G.remove_node(v)
+            del self.tree
+            del self.root
+
+            self.genes_dict[i].remove(v)
+            if len(self.genes_dict[i])==0:
+                del self.genes_dict[i]
+
             for s in self.sorted_qs:
-                self.sorted_qs[s] = [vertex for vertex in self.sorted_qs[s] if vertex!=v]
+                try:
+                    self.sorted_qs[s].remove(v)
+                except ValueError:
+                    pass
+
+                if len(self.sorted_qs[s])>0:
+                    new_min = self.sorted_qs[s][0]
+                    old_counter = v_howmany[new_min]
+                    new_counter = old_counter+1
+                    try:
+                        self.genes_dict[old_counter].remove(new_min)
+                    except KeyError:
+                        pass
+
+                    self.genes_dict.setdefault(new_counter, [])
+                    self.genes_dict[new_counter].append(new_min)
+                    v_howmany[new_min] = new_counter
+
+                    if old_counter>0 and len(self.genes_dict[old_counter])==0:
+                        del self.genes_dict[old_counter]
 
         print("Quante foglie?")
         print(self.leaves_number)
