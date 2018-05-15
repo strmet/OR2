@@ -56,15 +56,14 @@ def parse_command_line():
     timestamp = datetime.datetime.fromtimestamp(current_time).strftime('%Y%m%d_%H:%M:%S')
     default_folder = "run__" + timestamp
     parameters = {
-        'k': 4,
+        'k': 2,
         'proteinsin': "../data/hint+hi2012_index_file.txt",
-        'samplesin': "../data/snvs.tsv",
+        'samplesin': "../data/matriceProb.csv",
         'genesin': "../data/hint+hi2012_edge_file.txt",
         'delta': 0.8,
         'timeout': 10e12,  # for now, this will be ignored
-        'prob': False,
-        'strategy': 'combinatorial',
-        'bestsol': -1,
+        'prob': True,
+        'strategy': 'enumerate',
         'outfolder': default_folder  # for now, this will be ignored
     }
 
@@ -81,7 +80,6 @@ def parse_command_line():
     parser.add_argument('--timeout', type=int, help='timeout (seconds) in which the optimizer will stop iterating')
     parser.add_argument('--outfolder', type=str, help='The name (only!) of the folder to be created inside' +
                                                       'the \'$project_path\'/out/ directory')
-    parser.add_argument('--bestsol', type=float, help='The previous (k-1) best solution score')
 
     args = parser.parse_args()
 
@@ -95,9 +93,6 @@ def parse_command_line():
         if not (args.k>=1) or type(args.k)!=int:
             raise ValueError("The given 'k' is not a valid value (i.e. integer greater than 1). Given: " + str(args.k))
         parameters['timeout'] = args.timeout
-
-    if args.bestsol:
-        parameters['bestsol'] = float(args.bestsol)
 
     if args.k:
         if not (args.k>=1) or type(args.k)!=int:
@@ -130,21 +125,21 @@ def parse_command_line():
     return parameters
 
 
-def read_patients_prob(filename, genes_map, prob=True):
+def read_patients_prob(filename, genes_map,filter=[], prob=True):
 
     frame = pd.read_csv(filename,sep="\t")
     patients={}
     for index,row in frame.iterrows():
         patients.setdefault(row["sampleid"], {})
-        if row["geneid"] in genes_map:
+        if row["geneid"] in genes_map and row["geneid"] not in filter :
             patients[row["sampleid"]][genes_map[row["geneid"]]]=row["prob"]
 
     patients = {p:patients[p] for p in patients if len(patients[p])>0}
 
     return patients
 
-
-def read_patients(filename, genes_map):
+# filtro e' un set formato dai nomi dei geni come le chiavi di genes_map quindi TTN,ecc.
+def read_patients(filename, genes_map,filter=[]):
 
     with open(filename, "r") as file:
         patients={}
@@ -154,10 +149,18 @@ def read_patients(filename, genes_map):
             # Nota: se un gene risulta mutato in un paziente ma non compare nell'elenco dei geni dato in input,
             #       lo eliminiamo nell'elenco dei geni mutati di tale paziente, considerandolo (evidentemente)
             #       non rilevante.
-            patients[s[0]]=set([genes_map[gene] for gene in s[1:] if gene in genes_map])
+            patients[s[0]]=set([genes_map[gene] for gene in s[1:] if gene in genes_map and gene not in filter])
 
     return patients
 
+def read_filter(filename,genes_map):
+    with open(filename, "r") as file:
+        filter=set()
+        lines=file.readlines()
+        for l in lines:
+            l=l.replace("\n","")#l.strip()
+            filter.add(l)
+    return filter
 
 def read_genes(filename):
 
