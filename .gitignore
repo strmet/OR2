@@ -8,3 +8,9 @@ filetypes.xml
 baseRefactoring.xml
 editor.xml
 vcs.xml
+
+.idea/inspectionProfiles
+_linux
+codestyles
+inspection
+databaseDrivers.xml
