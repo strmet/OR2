@@ -62,8 +62,9 @@ def parse_command_line():
         'genesin': "../data/hint+hi2012_edge_file.txt",
         'delta': 0.8,
         'timeout': 10e12,  # for now, this will be ignored
-        'prob': True,
+        'prob': False,
         'strategy': 'enumerate',
+        'bestsol': 0,  #maximum for a single gene
         'outfolder': default_folder  # for now, this will be ignored
     }
 
@@ -80,9 +81,14 @@ def parse_command_line():
     parser.add_argument('--timeout', type=int, help='timeout (seconds) in which the optimizer will stop iterating')
     parser.add_argument('--outfolder', type=str, help='The name (only!) of the folder to be created inside' +
                                                       'the \'$project_path\'/out/ directory')
+    parser.add_argument('--bestsol', type=float, help='The previous (k-1) best solution score')
+
+
 
     args = parser.parse_args()
 
+    if args.bestsol:
+        parameters['bestsol'] = float(args.bestsol)
     if args.outfolder:
         parameters['outfolder'] = args.outfolder
     if args.strategy:

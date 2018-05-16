@@ -23,12 +23,13 @@ class BDDE:
             self.sort_by_degree = [[t[0], self.how_many_mins(t[0]), t[1]]
                                    for t in sorted(self.G.degree,
                                                    key=lambda t: t[1])]
-            self.genes_dict = {a[1]: [t[0]
-                                      for t in self.sort_by_degree
-                                      if t[1]==a[1]]
-                               for a in self.sort_by_degree
-                               if a[1] != 0
-                               }
+            self.genes_dict = {
+                a[1]: [t[0]
+                       for t in self.sort_by_degree
+                       if t[1]==a[1]]
+                for a in self.sort_by_degree
+                if a[1] != 0
+            }
             self.scoring_function = lambda subgraph: prob_cover(self.samples,subgraph)
         else:
             self.scoring_function = lambda subgraph: score_cover(self.samples,set(subgraph))
@@ -109,12 +110,8 @@ class BDDE:
             del self.tree
             del self.root
 
-            # Deleting the occurrences in the sorted dict, since we've removed v.
-            for s in self.samples:
-                try:
-                    self.samples[s].remove(v)
-                except KeyError:
-                    pass
+        print("Numero foglie: ")
+        print(self.leaves_number)
 
     def prob_enumeration_algorithm(self):
 
