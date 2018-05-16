@@ -65,6 +65,7 @@ def parse_command_line():
         'prob': False,
         'strategy': 'enumerate',
         'bestsol': 0,  #maximum for a single gene
+        'bound': False,
         'outfolder': default_folder  # for now, this will be ignored
     }
 
@@ -82,19 +83,25 @@ def parse_command_line():
     parser.add_argument('--outfolder', type=str, help='The name (only!) of the folder to be created inside' +
                                                       'the \'$project_path\'/out/ directory')
     parser.add_argument('--bestsol', type=float, help='The previous (k-1) best solution score')
-
-
+    parser.add_argument('--bound', action="store_true", help='Type --bound if you want to use the bounds')
 
     args = parser.parse_args()
 
+    if args.bound:
+        parameters['bound'] = True
+
     if args.bestsol:
         parameters['bestsol'] = float(args.bestsol)
+
     if args.outfolder:
-        parameters['outfolder'] = args.outfolder
+        parameters['outfolder'] = args.outfolde
+
     if args.strategy:
         parameters['strategy'] = args.strategy
+
     if args.prob:
         parameters['prob'] = True
+
     if args.timeout:
         if not (args.k>=1) or type(args.k)!=int:
             raise ValueError("The given 'k' is not a valid value (i.e. integer greater than 1). Given: " + str(args.k))

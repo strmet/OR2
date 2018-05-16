@@ -1,7 +1,12 @@
 import networkx as nx
 
 class BDDE:
-    def __init__(self, G, samples, k=2, delta=0.8, prob=False, starting_score=-1, starting_solution=[]):
+    def __init__(self, G, samples,
+                 k=2,
+                 delta=0.8,
+                 prob=False,
+                 starting_score=-1,
+                 bound=True):
         self.G = G
         self.k = k
         self.delta = delta
@@ -24,9 +29,11 @@ class BDDE:
                                    for t in sorted(self.G.degree,
                                                    key=lambda t: t[1])]
             self.genes_dict = {
-                a[1]: [t[0]
-                       for t in self.sort_by_degree
-                       if t[1]==a[1]]
+                a[1]: [
+                    t[0]
+                    for t in self.sort_by_degree
+                    if t[1]==a[1]
+                ]
                 for a in self.sort_by_degree
                 if a[1] != 0
             }
@@ -36,7 +43,8 @@ class BDDE:
 
         self.best_score = starting_score
         self.leaves_number = 0
-        self.best_subgraph = starting_solution
+        self.best_subgraph = []
+        self.bound = bound
 
     def fb(self, C):
         summation = 0.0
@@ -74,7 +82,7 @@ class BDDE:
         elif len(C)<self.k:
             # Prune it if the bounding function can't reach the current best,
             # but do it only when using the probability version.
-            return self.prob and self.fb(C)<self.best_score
+            return self.prob and self.bound and self.fb(C)<self.best_score
         else:
             # This means we've reached a leaf.
             # We should evaluate it, as it wasn't previously pruned!
@@ -100,6 +108,23 @@ class BDDE:
 
     def det_enumeration_algorithm(self):
         sorted_vertices = [t[0] for t in sorted(self.G.degree, key=lambda t: t[1])]
+        print("deterministic (no bounds) BDDE starts now:")
+        for v in sorted_vertices:
+            self.root=v
+            self.tree=nx.DiGraph()
+            self.DEPTH([],v,[])
+            self.G.remove_node(v)
+
+            # Removing whatever we don't use anymore
+            del self.tree
+            del self.root
+
+        print("Numero foglie: ")
+        print(self.leaves_number)
+
+    def prob_nobound_enumeration_algorithm(self):
+        sorted_vertices = [t[0] for t in sorted(self.G.degree, key=lambda t: t[1])]
+        print("probabilistic (no bounds) BDDE starts now:")
         for v in sorted_vertices:
             self.root=v
             self.tree=nx.DiGraph()
@@ -114,11 +139,10 @@ class BDDE:
         print(self.leaves_number)
 
     def prob_enumeration_algorithm(self):
-
         # vertex : #(minimums)
         v_howmany = {t[0]: t[1] for t in self.sort_by_degree}
         self.leaves_number=0
-        print("BDDE starts now:")
+        print("probabilistic BDDE starts now:")
         while len(self.genes_dict)>0:
             i = max(self.genes_dict)
 

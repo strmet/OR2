@@ -20,9 +20,16 @@ def main():
         else:
             C, P_C = combinatorial_algorithm(G,k,patients)
     elif strategy == 'enumerate':
-        BDDE_instance = BDDE(G, patients, k=k, prob=parameters['prob'], starting_score=parameters['bestsol'])
+        BDDE_instance = BDDE(G, patients,
+                             k=k,
+                             prob=parameters['prob'],
+                             starting_score=parameters['bestsol'],
+                             bound=parameters['bound'])
         if parameters['prob']:
-            BDDE_instance.prob_enumeration_algorithm()
+            if parameters['bound']:
+                BDDE_instance.prob_enumeration_algorithm()
+            else:
+                BDDE_instance.prob_nobound_enumeration_algorithm()
         else:
             BDDE_instance.det_enumeration_algorithm()
         C = BDDE_instance.best_subgraph
