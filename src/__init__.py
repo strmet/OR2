@@ -13,7 +13,7 @@ def main():
         - build the input files
         - build the output folders
     """
-    '''
+
     wf = WindFarm()
     # Reads the turbines and the cables file
     wf.parse_command_line()
@@ -38,8 +38,8 @@ def main():
 
     #wf.release()
 
-    '''
-    wf2 = Heuristics()
+
+    """wf2 = Heuristics()
 
     wf2.parse_command_line()
 
@@ -55,7 +55,7 @@ def main():
 
     prec, succ, graph = wf2.direct_mst(edges)
 
-    wf2.plot(graph)
+    wf2.plot(graph)"""
 
 
 if __name__ == "__main__":

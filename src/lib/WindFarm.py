@@ -1241,7 +1241,7 @@ class WindFarm:
         else:
             raise ValueError("Unrecognized heuristic technique; given: " + str(self.__metaheuristic))
 
-        print("Elapsed time: ", time.clock() - self.__starting_time)
+        print("Elapsed time: ", time.clock() - self.__starting_time, 'seconds')
 
     def release(self):
 
