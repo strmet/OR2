@@ -1079,7 +1079,7 @@ class WindFarm:
             self.__model.solve()
 
         elif self.cross_mode == 'loop':
-            self.__model.parameters.advance.set(0)
+            self.__model.parameters.advance.set(1)
             xs = True       # "are there any crosses in this solution?"
             opt = False     # "has the optimum been reached?"
 
@@ -1105,7 +1105,7 @@ class WindFarm:
                 if self.__model.solution.get_status() == self.__model.solution.status.MIP_optimal:
                     opt = True
 
-            self.__model.parameters.advance.set(1)
+            self.__model.parameters.advance.set(0)
         else:
             raise ValueError("Unrecognized cross-strategy; given: " + str(self.cross_mode))
 
