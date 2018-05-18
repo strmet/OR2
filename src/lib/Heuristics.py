@@ -6,7 +6,7 @@ from .WindFarm import WindFarm
 import random
 import matplotlib.pyplot as plt
 import sys
-
+import numpy as np
 
 class Heuristics:
 
@@ -216,6 +216,13 @@ class Heuristics:
 
     def MST_randomized_costs(self, delta_interval=0.1):
 
+        """
+            Generate a graph using random costs
+        :param delta_interval: The interval 1 +/- delta interval is used to sample the cost
+        :return: a graph represented as a list of edges
+
+        """
+
         g = nx.Graph()
         edges = []
 
@@ -285,7 +292,7 @@ class Heuristics:
 
         return prec, succ, graph
 
-    def cost_solution(self, prec, succ):
+    def cost_solution(self, prec, succ, M1=10**8, M2=10**9, M3=10**10, substation=0):
 
         """
 
@@ -293,9 +300,14 @@ class Heuristics:
 
         :param prec: List of lists. Each element's index represents one vertex, the values are the childs
         :param succ: List of integers. The index is the vertex and the value is its parent
+        :param M1: penalty for each crossing
+        :param M2: penalty for number of cables > C
+        :param M3: penalty for not feasible solutions due to cable overloading
+
         :return: Cost of the solution
 
         """
+        num_cables_to_substation = len(prec[substation])
 
         queue = []
         for i in range(self.__n_nodes):  # Extract leaves
@@ -327,12 +339,39 @@ class Heuristics:
                 queue.append(successor)
 
         cost = 0
+        num_crossings = 0
+
+        # Compute number of crossings
+        for ab in edges_with_power:
+            edges_violating_ab = [e2 for e2 in edges_with_power
+                                  # Filter out anything that goes to/comes from a and b.
+                                  if not (e2.s == ab.s or e2.d == ab.s or e2.s == ab.d or e2.d == ab.d)
+                                  # Extract the violated edges only.
+                                  and WindFarm.are_crossing(self.__points[ab.s],
+                                                            self.__points[ab.d],
+                                                            self.__points[e2.s],
+                                                            self.__points[e2.d])]
+            num_crossings += len(edges_violating_ab)
+
+        num_crossings /= 2  # Since they are counted in both directionds
+        num_crossings = int(num_crossings)
+        cost += num_crossings * M1
 
         for edge in edges_with_power:
+            found = False
             for cable in self.__cables:
                 if edge.power <= cable.capacity: # Da correggere per il caso di soluzioni infeasible
+                    found = True
                     cost += WindFarm.get_distance(self.__points[edge.s], self.__points[edge.d]) * cable.price
-                    break  # TODO Ask the professor and rearrange the loop
+                    break
+
+            if found is False:
+                cost += M3
+
+        if num_cables_to_substation > self.__c:
+            cost += (num_cables_to_substation - self.__c) * M2
+
+        return cost
 
     def __convert_graph(self, graph):
 
@@ -344,6 +383,7 @@ class Heuristics:
         :return: EdgeSol list
 
         """
+
         edges = graph.edges(data=True)
 
         sol = []
@@ -352,7 +392,7 @@ class Heuristics:
 
         return sol
 
-    def grasp(self, num_edges=5, substation=0):
+    def grasp(self, num_edges=5, substation=0, num_fixed_edges=5):
 
         """
 
@@ -364,6 +404,7 @@ class Heuristics:
 
         :param num_edges: the size of the pool
         :param substation: The index of the substation (range [0, ..., n - 1])
+        :param num_fixed_edges: the number of edges fixed to the subsation
         :return: the list of oriented edges
 
         """
@@ -384,8 +425,22 @@ class Heuristics:
         flag[substation] = 1
         L = matrix[substation]
 
+        # Select the indexes of closest edges
+        arr = np.array(L)
+        indexes = arr.argsort()[:num_fixed_edges + 1]
+        indexes = np.delete(indexes, substation)
+
+        for index in indexes:  # Mark the edges as in the MST
+            flag[index] = 1
+
+        for index in indexes:  # Update the L data structure
+            for j in range(1, self.__n_nodes):
+                    if flag[j] == 0 and matrix[index][j] < L[j]:
+                        L[j] = matrix[index][j]
+                        pred[j] = index
+
         # Step 2
-        for k in range(0, self.__n_nodes - 1):
+        for k in range(0, self.__n_nodes - 6):
 
             # Step 3
             mins = [sys.float_info.max] * num_edges  # Set each element to +infinite
