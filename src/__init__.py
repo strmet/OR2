@@ -60,13 +60,11 @@ def main():
     #print(cost)
     #wf2.plot(graph)
 
-    wf2.genetic_algorithm()
-    chromosome = wf2.encode(graph)
-    print(chromosome)
+    tree, cost = wf2.genetic_algorithm()
+    print(cost)
 
-    tree2 = wf2.decode(chromosome)
+    wf2.plot(tree)
 
-    wf2.plot(tree2)
 
 if __name__ == "__main__":
     main()

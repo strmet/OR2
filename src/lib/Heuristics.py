@@ -487,7 +487,7 @@ class Heuristics:
         Below you can find its description.
         :param pop_number: how many starting solution we're provided with
         :param twins_per_breed: how many twins will be generated for each chromosome couple
-        :return: the best solution found after the timeout.
+        :return: the best solution found after the timeout and its cost.
         """
 
         """
@@ -530,7 +530,7 @@ class Heuristics:
 
         now = time.clock()
 
-        while True:  # time.clock() - now < self.__time_limit:
+        while time.clock() - now < self.__time_limit:
             current_children = self.__reproduction(pop, twins_per_breed)
 
             children = self.__evaluation(current_children)
@@ -541,7 +541,12 @@ class Heuristics:
             if best_from_pop[0] < BEST_obj_value:
                 BEST_chromosome = best_from_pop[1]
                 BEST_obj_value = best_from_pop[0]
+            pp.pprint(len(pop))
             pop = self.__mutate(pop)
+            pp.pprint(len(pop))
+            input()
+
+        return self.__decode(BEST_chromosome), BEST_obj_value
 
     def __mutate(self, pop, select_prob=0.15, single_mut_prob=0.15):
         """
@@ -553,8 +558,12 @@ class Heuristics:
         :return: the mutated population.
         """
         return [
-            self.__gamma_ray(t[1], single_mut_prob) for t in pop
-            if random.random() < select_prob
+            (
+                t[0],
+                self.__gamma_ray(t[1], single_mut_prob) if random.random() < select_prob else t[1]
+            )
+            for t in pop
+
         ]
 
     def __gamma_ray(self, chromosome, prob=0.15):
