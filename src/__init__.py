@@ -1,6 +1,7 @@
 # our own libraries
 from lib.WindFarm import WindFarm
 from lib.Heuristics import Heuristics
+import networkx as nx
 
 def main():
 
@@ -45,20 +46,27 @@ def main():
 
     wf2.read_input()
 
-    #edges = wf2.MST_randomized_costs(delta_interval=0)
-
-    #prec, succ, graph = wf2.direct_mst(edges)
-
-    #wf2.plot(graph)
-
-    edges = wf2.grasp(num_edges=12)
+    edges = wf2.MST_randomized_costs(delta_interval=0)
 
     prec, succ, graph = wf2.direct_mst(edges)
 
-    cost = wf2.cost_solution(prec, succ)
-    print(cost)
-    wf2.plot(graph)
+    #wf2.plot(graph)
 
+    #edges = wf2.grasp(num_edges=12)
+
+    #prec, succ, graph = wf2.direct_mst(edges)
+
+    #cost = wf2.cost_solution(prec, succ)
+    #print(cost)
+    #wf2.plot(graph)
+
+    wf2.genetic_algorithm()
+    chromosome = wf2.encode(graph)
+    print(chromosome)
+
+    tree2 = wf2.decode(chromosome)
+
+    wf2.plot(tree2)
 
 if __name__ == "__main__":
     main()

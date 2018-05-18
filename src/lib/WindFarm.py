@@ -701,7 +701,7 @@ class WindFarm:
             raise ValueError("Unknown interface. I've got: " + str(self.__interface))
 
         if var == 'x':
-            sol = [self.__CableSol(self.__xpos(i, j, k), i, j, k)  # Perché k + 1?
+            sol = [self.__CableSol(self.__xpos(i, j, k), i, j, k)
                    for i in range(self.__n_nodes)
                    for j in range(self.__n_nodes)
                    for k in range(self.__n_cables)
