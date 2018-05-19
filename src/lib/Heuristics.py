@@ -294,7 +294,7 @@ class Heuristics:
 
         return prec, succ, graph
 
-    def cost_solution(self, prec, succ, M1=10**8, M2=10**9, M3=10**10, substation=0):
+    def cost_solution(self, prec, succ, M1=10**12, M2=10**12, M3=10**12, substation=0):
 
         """
 
@@ -480,7 +480,7 @@ class Heuristics:
 
         return edges
 
-    def genetic_algorithm(self, pop_number=100, twins_per_breed=1):
+    def genetic_algorithm(self, pop_number=1000, twins_per_breed=5):
         """
         This is the main structure of the genetic algorithm,
         as it is explained in the Zhou, Gen article (1997).
@@ -513,7 +513,7 @@ class Heuristics:
             return DECODING(BEST_chromosome), BEST_obj_value
         """
 
-        # We try to move the random seed a bit, before engaging the algorithm
+        # We try to move the random seed 'a bit', before engaging the algorithm
         for i in range(1000):
             random.randint(0,1)
 
@@ -528,27 +528,45 @@ class Heuristics:
         BEST_chromosome = pop[BEST_idx][1]
         BEST_obj_value = pop[BEST_idx][0]
 
-        now = time.clock()
+        starting_time = time.clock()
+        current_time = time.clock()
 
-        while time.clock() - now < self.__time_limit:
-            current_children = self.__reproduction(pop, twins_per_breed)
+        """
+        Time slot meaning:
+            - We divide the time limit in five different "time slots"
+            - If we're in the 1st, the 3rd or the last one, we're supposed to work in a INTENSIFICATION phase;
+            - If we're in the 2nd or the 4th, we're supposed to work with in a DIVERSIFICATION phase;
+            - To implement such reasoning, we exploit the % (reminder) operator.
+        """
+        time_slot = self.__time_limit/5
+
+        print("Genetic Algorithm starts now...")
+        while current_time - starting_time < self.__time_limit:
+            intensification_phase = True if 0 < current_time % (2*time_slot) else False
+            current_children = self.__reproduction(pop,
+                                                   twins_per_breed=twins_per_breed)
 
             children = self.__evaluation(current_children)
 
             # From now on we have a new pop, t=t+1 ('next generation'):
-            best_from_pop, pop = self.__selection(pop, children)
+            e_l_f = 0.10 if intensification_phase else 0.5
+            best_from_pop, pop = self.__selection(pop,
+                                                  children,
+                                                  expected_lucky_few=e_l_f)
 
             if best_from_pop[0] < BEST_obj_value:
                 BEST_chromosome = best_from_pop[1]
                 BEST_obj_value = best_from_pop[0]
-            pp.pprint(len(pop))
-            pop = self.__mutate(pop)
-            pp.pprint(len(pop))
-            input()
+            s_p = 0.15 if intensification_phase else 0.45
+            s_m_p = 0.05 if intensification_phase else 0.65
+            pop = self.__mutate(pop,
+                                select_prob=s_p,
+                                single_mut_prob=s_m_p)
+            current_time = time.clock()
 
         return self.__decode(BEST_chromosome), BEST_obj_value
 
-    def __mutate(self, pop, select_prob=0.15, single_mut_prob=0.15):
+    def __mutate(self, pop, select_prob=0.20, single_mut_prob=0.20):
         """
         This method take the whole population and mutates some of the chromosomes, randomly.
 
@@ -557,37 +575,42 @@ class Heuristics:
         :param single_mut_prob: Probability that, given that a chromosome is selected, a gene will mutate.
         :return: the mutated population.
         """
-        return [
-            (
-                t[0],
-                self.__gamma_ray(t[1], single_mut_prob) if random.random() < select_prob else t[1]
-            )
-            for t in pop
 
-        ]
+        mutated_pop = []
 
-    def __gamma_ray(self, chromosome, prob=0.15):
+        for t in pop:
+            if random.random() < select_prob:
+                mutated_chromosome = self.__gamma_ray(t[1], single_mut_prob)
+                prec, succ, tree = self.direct_mst(self.__extract_EdgeSols(self.__decode(mutated_chromosome)))
+                new_cost = self.cost_solution(prec,succ)
+                mutated_pop.append((new_cost, mutated_chromosome))
+            else:
+                mutated_pop.append(t)
+
+        return mutated_pop
+
+    def __gamma_ray(self, chromosome, prob=0.20):
         """
         This method's name comes from Fischetti's class: sometimes, some genes are hit by some gamma ray.
-        When this happens (i.e. randomly), that single gene will mutate into something else, which is random, too.
+        When this happens (i.e. randomly), a single gene will mutate into something else, which is random, too.
         :param chromosome: The chromosome struck by the gamma ray
         :param prob: the probability that a single gene will mutate because of the gamma ray.
         :return: the (eventually) mutated chromosome.
         """
         return [
-            c if random.random() < prob else random.randint(0, self.__n_nodes-1)
-            for c in chromosome
+            random.randint(0, self.__n_nodes-1) if random.random() < prob else g
+            for g in chromosome
         ]
 
-    def __selection(self, oldpop, newchild, expected_lucky_few=0.15):
+    def __selection(self, oldpop, newchild, expected_lucky_few=0.20):
         """
         This method takes the parents and their children and returns the same number of chromosomes,
         such that the population number won't change.
         The population returned will have a majority of 'good' genes,
         while some lucky few 'bad' genes are added anyways.
 
-        :param oldpop: The parents.
-        :param newchild: Their children.
+        :param oldpop: The parents. List of tuples (cost, chromosome)
+        :param newchild: Their children. List of tuples (cost, chromosome)
         :param expected_lucky_few: The *expected proportion* of the 'lucky few' that will be spared, even if 'bad'.
         :return: The best solution within the new population and the new population itself.
         """
@@ -599,15 +622,34 @@ class Heuristics:
         # (probably, yes, but still.)
         best_one = pop_union[0]
 
-        lucky_few = random.gauss(mu=expected_lucky_few, sigma=1e-6)
+        # If the expectation is zero or one,
+        # we interpret it as there is no aleatory process
+        # behind the "lucky_few" selections.
+        if expected_lucky_few == 0:
+            lucky_few = 0
+        elif expected_lucky_few == 1:
+            lucky_few = 1
+        else:
+            lucky_few = random.gauss(
+                mu=expected_lucky_few,
+                sigma=5*expected_lucky_few/100  # This is a totally a arbitrary choice (sigma = +/- 5% mu)
+            )
+            # We want to guarantee that we've obtained a probability which makes sense
+            lucky_few = max(0,lucky_few)
+            lucky_few = min(lucky_few,1)
+
         bad_genes = int(pop_length*lucky_few)
         good_genes = pop_length-bad_genes
 
         newpop = []
         for i in range(good_genes):
-            newpop.append(random.choice(pop_union[:good_genes]))
+            good_gene = random.choice(pop_union[:good_genes])
+            newpop.append(good_gene)
+            pop_union.remove(good_gene)
         for i in range(bad_genes):
-            newpop.append(random.choice(pop_union[:-bad_genes]))
+            bad_gene = random.choice(pop_union[-bad_genes:])
+            newpop.append(bad_gene)
+            pop_union.remove(bad_gene)
 
         return best_one, newpop
 
@@ -635,7 +677,7 @@ class Heuristics:
             for e in graph.edges()
         ]
 
-    def __reproduction(self, pop, twins_per_breed=1):
+    def __reproduction(self, pop, twins_per_breed=5):
         """
         This method receives the population and creates the new children to be added to the new population.
 
@@ -643,14 +685,28 @@ class Heuristics:
         :param twins_per_breed: fixed a couple of chromosomes, this number is how many twins they're generating.
         :return: A list of chromosomes, representing the new children.
         """
+
         pop_number = len(pop)
 
-        return [
-            child
-            for i in range(int(pop_number/2))
-            for j in range(twins_per_breed)
-            for child in self.__breed(pop[i][1], pop[pop_number-1-i][1])
-        ]
+        # I need to make a deepcopy of this list, or pop will be deleted.
+        pop_temp = list(pop)
+
+        # If the pop number is even, mating processes will be fine (so that no one will be left alone)
+        if pop_number % 2 != 0:
+            alone_chromosome = random.choice(pop_temp)
+            pop_temp.remove(alone_chromosome)
+
+        children = []
+        while len(pop_temp) > 0:
+            parent_1 = random.choice(pop_temp)
+            pop_temp.remove(parent_1)
+            parent_2 = random.choice(pop_temp)
+            pop_temp.remove(parent_2)
+            for j in range(twins_per_breed):
+                for child in self.__breed(parent_1[1], parent_2[1]):
+                    children.append(child)
+
+        return children
 
     def __breed(self, parent_1, parent_2):
         """
@@ -660,11 +716,8 @@ class Heuristics:
         :param parent_2: Mather
         :return: A couple of twins
         """
+
         chr_length = len(parent_1)
-        if chr_length != len(parent_2):
-            raise ValueError("Chromosomes must have the same lengths; lengths given:",
-                             chr_length,
-                             len(parent_2))
 
         child_1 = [
             parent_1[i] if random.randint(0,1) == 1 else parent_2[i]
@@ -713,7 +766,7 @@ class Heuristics:
         """
         tree = nx.DiGraph()
 
-        nodes_in_tree = [el+1 for el in range(self.__n_nodes)]
+        nodes_in_tree = [el for el in range(self.__n_nodes)]
         p_hat = [
             n for n in nodes_in_tree
             if n not in chromosome
