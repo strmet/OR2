@@ -780,7 +780,7 @@ class WindFarm:
         wf_number = 0
         if 0 <= self.data_select <= 6:
             wf_number = 1
-            self.c = 7
+            self.c = 10
         elif 7 <= self.data_select <= 15:
             wf_number = 2
             self.c = 100

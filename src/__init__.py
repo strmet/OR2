@@ -1,6 +1,8 @@
 # our own libraries
 from lib.WindFarm import WindFarm
 from lib.Heuristics import Heuristics
+import networkx as nx
+import math
 
 def main():
 
@@ -45,9 +47,9 @@ def main():
 
     wf2.read_input()
 
-    #edges = wf2.MST_randomized_costs(delta_interval=0)
+    edges = wf2.MST_randomized_costs(delta_interval=0)
 
-    #prec, succ, graph = wf2.direct_mst(edges)
+    prec, succ, graph = wf2.direct_mst(edges)
 
     #wf2.plot(graph)
 
@@ -57,7 +59,18 @@ def main():
 
     cost = wf2.cost_solution(prec, succ)
     print(cost)
+    print(math.log(cost, 10))  # debugging
     wf2.plot(graph)
+
+    tree, cost = wf2.genetic_algorithm()
+    print(cost)
+    print(math.log(cost, 10))  # debugging
+
+    wf2.plot(tree)
+
+    if tree.out_degree(0)>0:
+        raise ValueError("LOLLONI")
+
 
 
 if __name__ == "__main__":
