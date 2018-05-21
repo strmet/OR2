@@ -701,7 +701,7 @@ class WindFarm:
             raise ValueError("Unknown interface. I've got: " + str(self.__interface))
 
         if var == 'x':
-            sol = [self.__CableSol(self.__xpos(i, j, k), i, j, k)  # Perché k + 1?
+            sol = [self.__CableSol(self.__xpos(i, j, k), i, j, k)
                    for i in range(self.__n_nodes)
                    for j in range(self.__n_nodes)
                    for k in range(self.__n_cables)
@@ -780,7 +780,7 @@ class WindFarm:
         wf_number = 0
         if 0 <= self.data_select <= 6:
             wf_number = 1
-            self.c = 10
+            self.c = 7
         elif 7 <= self.data_select <= 15:
             wf_number = 2
             self.c = 100
@@ -828,8 +828,10 @@ class WindFarm:
         for index, node in enumerate(self.__points):
             G.add_node(index)
 
+        available_colours = ['black', 'red', 'gray', 'sienna', 'purple', 'navy', 'darkcyan', 'darkkhaki',
+                             'coral', 'chocolate', 'salmon', 'olive', 'fuchsia', 'blue', 'seagreen', 'pink']
         for edge in edges:
-            G.add_edge(edge.s, edge.d)
+            G.add_edge(edge.s, edge.d, color=available_colours[edge.capacity])
 
         pos = {i: (point.x, point.y) for i, point in enumerate(self.__points)}
 
@@ -837,15 +839,18 @@ class WindFarm:
         plt.gca().set_aspect('equal', adjustable='box')
 
         # draw graph
+        net_edges = G.edges()
+        colors = [G[u][v]['color'] for u, v in net_edges]
+
+        hfont = {'fontname':'sans-serif'}
+        plt.title(self.__name + " (" + str(self.__model.solution.get_objective_value()) + ")", **hfont, fontsize=16)
+
         nx.draw(G, pos, with_labels=True, node_size=1300, alpha=0.3, arrows=True, labels=mapping, node_color='g',
-                linewidth=10)
-
-        #if export:
-        #    plt.savefig(self.__project_path + '/out/' + self.out_dir_name + '/img/foo.svg')
-
+                linewidth=20, edge_color=colors)
         plt.show()
 
     def __get_violated_edges(self, selected_edges):
+
         """
 
         When called, this function returns a list of violations, which are a list of y_pos indexes,
@@ -1067,7 +1072,6 @@ class WindFarm:
             lazycb.get_violated_edges = self.__get_violated_edges
             lazycb.ypos = self.__ypos
             lazycb.EdgeSol = self.__EdgeSol
-            lazycb.start_time = time.time()
             lazycb.sum_time = 0
             lazycb.n_cables = self.__n_cables
             lazycb.model = self.__model
@@ -1086,13 +1090,12 @@ class WindFarm:
             for i in range(3):
                 self.__model.solve()
 
-            while (xs or not opt) and time.clock() - self.__starting_time < self.__overall_wait_time:
+            while (xs or not opt) and time.clock() - self.__starting_time < self.__overall_wait_time * self.__model.parameters.threads.get():
                 self.__model.solve()
                 self.plot_solution(edges=self.__get_solution(var='x'), high=False)
 
                 violations = self.__get_violated_edges(self.__get_solution(var='y'))
-                #print("Violations:")
-                #pp.pprint(violations)
+
                 if len(violations) > 0:
                     xs = True
                     for violation in violations:
@@ -1129,7 +1132,7 @@ class WindFarm:
 
         starting_best_bound = starting_gap * self.__model.solution.get_objective_value()
 
-        while not optimum and time.clock() - self.__starting_time < self.__overall_wait_time:
+        while not optimum and time.clock() - self.__starting_time < self.__overall_wait_time * self.__model.parameters.threads.get():
 
             sol = self.__get_solution(var='y')
             self.plot_solution(self.__get_solution(var='x'))
@@ -1166,6 +1169,7 @@ class WindFarm:
         print("True gap: ", self.__true_gap)
 
     def __soft_fix(self):
+
         """
 
         Solve the problem using the soft fixing math-heuristic
@@ -1183,7 +1187,7 @@ class WindFarm:
             starting_gap = self.__model.solution.MIP.get_mip_relative_gap()
 
         starting_best_bound = starting_gap * self.__model.solution.get_objective_value()
-        while not optimum and time.time() - self.__starting_time < self.__overall_wait_time:
+        while not optimum and time.clock() - self.__starting_time < self.__overall_wait_time * self.__model.parameters.threads.get():
 
             selected_edges = self.__get_solution(var='y')
             self.plot_solution(self.__get_solution(var='x'))
@@ -1224,7 +1228,8 @@ class WindFarm:
         """
 
         print("Rins = ", self.__model.parameters.mip.strategy.rinsheur.get())
-
+        self.__model.parameters.threads.set(multiprocessing.cpu_count())
+        start_time = time.time()
         if self.__cluster:
             self.__model.parameters.randomseed = random.randint(0, sys.maxsize)
             self.__model.parameters.advance.set(0)
@@ -1241,7 +1246,8 @@ class WindFarm:
         else:
             raise ValueError("Unrecognized heuristic technique; given: " + str(self.__metaheuristic))
 
-        print("Elapsed time: ", time.clock() - self.__starting_time)
+        print("Elapsed time CPU: ", time.clock() - self.__starting_time)
+        print("Elpased true time: ", time.time() - start_time)
 
     def release(self):
 
