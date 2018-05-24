@@ -1,0 +1,79 @@
+../../data/mutated_expressed_genes.txt
+deterministic (no bounds) BDDE starts now:
+_________________
+
+Best solution updated!
+Current C (ids):  [6, 1847]
+Current P_C (cardinality): 4
+_________________
+
+Best solution updated!
+Current C (ids):  [10, 5096]
+Current P_C (cardinality): 5
+_________________
+
+Best solution updated!
+Current C (ids):  [13, 2005]
+Current P_C (cardinality): 7
+_________________
+
+Best solution updated!
+Current C (ids):  [16, 9101]
+Current P_C (cardinality): 11
+_________________
+
+Best solution updated!
+Current C (ids):  [129, 5494]
+Current P_C (cardinality): 15
+_________________
+
+Best solution updated!
+Current C (ids):  [475, 6988]
+Current P_C (cardinality): 19
+_________________
+
+Best solution updated!
+Current C (ids):  [2206, 8821]
+Current P_C (cardinality): 46
+_________________
+
+Best solution updated!
+Current C (ids):  [7540, 2622]
+Current P_C (cardinality): 67
+_________________
+
+Best solution updated!
+Current C (ids):  [370, 2622]
+Current P_C (cardinality): 68
+_________________
+
+Best solution updated!
+Current C (ids):  [330, 2622]
+Current P_C (cardinality): 69
+_________________
+
+Best solution updated!
+Current C (ids):  [373, 2622]
+Current P_C (cardinality): 72
+_________________
+
+Best solution updated!
+Current C (ids):  [8639, 2622]
+Current P_C (cardinality): 74
+_________________
+
+Best solution updated!
+Current C (ids):  [6780, 8821]
+Current P_C (cardinality): 92
+_________________
+
+Best solution updated!
+Current C (ids):  [2622, 6278]
+Current P_C (cardinality): 93
+Numero foglie: 
+40705
+_________________
+Final solution (ids):  [2622, 6278]
+Final solution (genes' names):  ['EGFR', 'PIK3R1']
+Final solution cardinality:  93
+_________________
