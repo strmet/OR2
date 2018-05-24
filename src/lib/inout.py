@@ -139,9 +139,9 @@ def parse_command_line():
 
     if args.filterin:
         if not os.path.isfile(args.filterin):
-            raise FileNotFoundError("Can't find the 'proteins' file; filename given: " + args.proteinsin)
+            raise FileNotFoundError("Can't find the 'proteins' file; filename given: " + args.filterin)
 
-        parameters['filterin'] = args.proteinsin
+        parameters['filterin'] = args.filterin
 
     return parameters
 

@@ -9,6 +9,7 @@ def main():
     strategy = parameters['strategy']
     G = load_network(parameters['genesin'])
     id_to_str, str_to_id = read_genes(parameters['proteinsin'])
+    print(parameters['filterin'])
     da_tenere = read_da_tenere(parameters['filterin'])
     if parameters['prob']:
         patients = read_patients_prob(parameters['samplesin'], str_to_id, da_tenere=da_tenere)
