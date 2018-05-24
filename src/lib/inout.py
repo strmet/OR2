@@ -60,11 +60,12 @@ def parse_command_line():
         'proteinsin': "../data/hint+hi2012_index_file.txt",
         'samplesin': "../data/matriceProb.csv",
         'genesin': "../data/hint+hi2012_edge_file.txt",
+        'filterin': '../data/mutated_expressed_genes.txt',
         'delta': 0.8,
         'timeout': 10e12,  # for now, this will be ignored
         'prob': False,
         'strategy': 'enumerate',
-        'bestsol': 0,  #maximum for a single gene
+        'bestsol': 0,  # maximum for a single gene
         'bound': False,
         'outfolder': default_folder  # for now, this will be ignored
     }
@@ -74,6 +75,7 @@ def parse_command_line():
     parser.add_argument('--proteinsin', type=str, help='File path to the gene-to-id data set')
     parser.add_argument('--samplesin', type=str, help='File path to the samples data set')
     parser.add_argument('--genesin', type=str, help='File path to the genes (graph) data set')
+    parser.add_argument('--filterin', type=str, help='File path to the filter data set')
     parser.add_argument('--delta', type=float, help='Delta parameter: edge weight tolerance')
     parser.add_argument('--k', type=int, help='Cardinality of the solution to be returned')
     parser.add_argument('--strategy', choices=['combinatorial', 'enumerate'], help='Choose the strategy')
@@ -135,45 +137,54 @@ def parse_command_line():
 
         parameters['proteinsin'] = args.proteinsin
 
+    if args.filterin:
+        if not os.path.isfile(args.filterin):
+            raise FileNotFoundError("Can't find the 'proteins' file; filename given: " + args.proteinsin)
+
+        parameters['filterin'] = args.proteinsin
+
     return parameters
 
 
-def read_patients_prob(filename, genes_map,filter=[], prob=True):
-
+def read_patients_prob(filename, genes_map, da_tenere=set()):
     frame = pd.read_csv(filename,sep="\t")
-    patients={}
+    patients = {}
     for index,row in frame.iterrows():
         patients.setdefault(row["sampleid"], {})
-        if row["geneid"] in genes_map and row["geneid"] not in filter :
+        if row["geneid"] in genes_map and row["geneid"] in da_tenere:
             patients[row["sampleid"]][genes_map[row["geneid"]]]=row["prob"]
 
-    patients = {p:patients[p] for p in patients if len(patients[p])>0}
+    patients = {p:patients[p] for p in patients if len(patients[p]) > 0}
 
     return patients
 
+
 # filtro e' un set formato dai nomi dei geni come le chiavi di genes_map quindi TTN,ecc.
-def read_patients(filename, genes_map,filter=[]):
+def read_patients(filename, genes_map, da_tenere=set()):
 
     with open(filename, "r") as file:
-        patients={}
-        lines=file.readlines()
+        patients = {}
+        lines = file.readlines()
         for l in lines:
             s=l.split("\t")
             # Nota: se un gene risulta mutato in un paziente ma non compare nell'elenco dei geni dato in input,
             #       lo eliminiamo nell'elenco dei geni mutati di tale paziente, considerandolo (evidentemente)
             #       non rilevante.
-            patients[s[0]]=set([genes_map[gene] for gene in s[1:] if gene in genes_map and gene not in filter])
+            patients[s[0]]=set([genes_map[gene] for gene in s[1:] if gene in genes_map and gene in da_tenere])
 
     return patients
 
-def read_filter(filename,genes_map):
+
+def read_da_tenere(filename):
+    da_tenere = set()
+
     with open(filename, "r") as file:
-        filter=set()
-        lines=file.readlines()
-        for l in lines:
-            l=l.replace("\n","")#l.strip()
-            filter.add(l)
-    return filter
+        for line in file:
+            line = line.strip()
+            da_tenere.add(str(line))
+
+    return da_tenere
+
 
 def read_genes(filename):
 
