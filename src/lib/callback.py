@@ -12,9 +12,6 @@ class LazyCallback(LazyConstraintCallback):
 
     def __call__(self):
 
-        # Set sequential code
-        self.model.parameters.threads.set(1)
-
         start = time.time()
 
         # Get solution to build cuts
@@ -37,6 +34,3 @@ class LazyCallback(LazyConstraintCallback):
         # Store time spent on callbacks
         end = time.time()
         self.sum_time += end - start
-
-        # Restore full parallelism
-        self.model.parameters.threads.set(multiprocessing.cpu_count())
