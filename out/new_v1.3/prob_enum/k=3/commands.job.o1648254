@@ -1,0 +1,7 @@
+Requirement already satisfied (use --upgrade to upgrade): networkx in /home/venirluca/.local/lib/python3.5/site-packages
+Requirement already satisfied (use --upgrade to upgrade): decorator>=4.1.0 in /home/venirluca/.local/lib/python3.5/site-packages (from networkx)
+Requirement already satisfied (use --upgrade to upgrade): pandas in /home/venirluca/.local/lib/python3.5/site-packages
+Requirement already satisfied (use --upgrade to upgrade): numpy>=1.9.0 in /usr/lib64/python3.5/site-packages (from pandas)
+Requirement already satisfied (use --upgrade to upgrade): python-dateutil>=2 in /usr/lib/python3.5/site-packages (from pandas)
+Requirement already satisfied (use --upgrade to upgrade): pytz>=2011k in /home/venirluca/.local/lib/python3.5/site-packages (from pandas)
+Requirement already satisfied (use --upgrade to upgrade): six>=1.5 in /usr/lib/python3.5/site-packages (from python-dateutil>=2->pandas)

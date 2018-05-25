@@ -1,0 +1,79 @@
+../../data/mutated_expressed_genes.txt
+probabilistic (no bounds) BDDE starts now:
+_________________
+
+Best solution updated!
+Current C (ids):  [4, 3903, 3484]
+Current P_C (cardinality): 1.0641014070687902
+_________________
+
+Best solution updated!
+Current C (ids):  [6, 1847, 9769]
+Current P_C (cardinality): 5.544721197269041
+_________________
+
+Best solution updated!
+Current C (ids):  [6, 1847, 9276]
+Current P_C (cardinality): 6.339022890705223
+_________________
+
+Best solution updated!
+Current C (ids):  [6, 1847, 3624]
+Current P_C (cardinality): 6.399564501444729
+_________________
+
+Best solution updated!
+Current C (ids):  [13, 2005, 8105]
+Current P_C (cardinality): 9.9463929318336
+_________________
+
+Best solution updated!
+Current C (ids):  [13, 2005, 2622]
+Current P_C (cardinality): 25.792400517068188
+_________________
+
+Best solution updated!
+Current C (ids):  [16, 9101, 8821]
+Current P_C (cardinality): 36.13112988222832
+_________________
+
+Best solution updated!
+Current C (ids):  [16, 9101, 6780]
+Current P_C (cardinality): 40.10946962418569
+_________________
+
+Best solution updated!
+Current C (ids):  [2206, 8821, 6780]
+Current P_C (cardinality): 62.82943731775322
+_________________
+
+Best solution updated!
+Current C (ids):  [9335, 8821, 6780]
+Current P_C (cardinality): 62.85525487369125
+_________________
+
+Best solution updated!
+Current C (ids):  [6788, 8821, 6780]
+Current P_C (cardinality): 63.6880294502584
+_________________
+
+Best solution updated!
+Current C (ids):  [7972, 8821, 6780]
+Current P_C (cardinality): 64.0006276545455
+_________________
+
+Best solution updated!
+Current C (ids):  [2123, 8821, 6780]
+Current P_C (cardinality): 65.30684596010553
+_________________
+
+Best solution updated!
+Current C (ids):  [7031, 8821, 6780]
+Current P_C (cardinality): 66.49919467585573
+Numero foglie: 
+1808307
+_________________
+Final solution (ids):  [7031, 8821, 6780]
+Final solution (genes' names):  ['RB1CC1', 'TP53', 'PTEN']
+Final solution cardinality:  66.49919467585573
+_________________
