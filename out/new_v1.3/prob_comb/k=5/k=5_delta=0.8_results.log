@@ -1,0 +1,51 @@
+../../data/mutated_expressed_genes.txt
+_________________
+
+Best solution updated!
+Current C (ids):  {1632, 1, 8821, 7031, 6780}
+Current P_C (cardinality): 67.67653899961954
+_________________
+
+Best solution updated!
+Current C (ids):  {2592, 8821, 8632, 8, 6780}
+Current P_C (cardinality): 68.68914337637432
+_________________
+
+Best solution updated!
+Current C (ids):  {8821, 9, 6780, 9485, 2622}
+Current P_C (cardinality): 82.40146044876514
+_________________
+
+Best solution updated!
+Current C (ids):  {8821, 2622, 6780, 9101, 14}
+Current P_C (cardinality): 84.85417550528973
+_________________
+
+Best solution updated!
+Current C (ids):  {16, 8821, 6780, 9101, 2622}
+Current P_C (cardinality): 85.43564067913769
+_________________
+
+Best solution updated!
+Current C (ids):  {8821, 1291, 6780, 9101, 2622}
+Current P_C (cardinality): 86.77240854675267
+_________________
+
+Best solution updated!
+Current C (ids):  {6273, 2291, 8821, 6278, 6780}
+Current P_C (cardinality): 94.93469650367649
+_________________
+
+Best solution updated!
+Current C (ids):  {8821, 6278, 5864, 6780, 2622}
+Current P_C (cardinality): 95.91912660602736
+_________________
+
+Best solution updated!
+Current C (ids):  {8821, 6278, 6793, 6780, 2622}
+Current P_C (cardinality): 96.66525831012126
+_________________
+Final solution (ids):  {8821, 6278, 6793, 6780, 2622}
+Final solution (genes' names):  ['TP53', 'PIK3R1', 'PTK2', 'PTEN', 'EGFR']
+Final solution cardinality:  96.66525831012126
+_________________

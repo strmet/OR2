@@ -25,10 +25,10 @@ import getpass
 proteinsin = "../../data/hint+hi2012_index_file.txt"
 genesin = "../../data/hint+hi2012_edge_file.txt"
 filterin = "../../data/mutated_expressed_genes.txt"
-probs = [True]  # Probabilistic version of the problem or not?
+probs = [True, False]  # Probabilistic version of the problem or not?
 bound = True
 strategy = ['combinatorial']  # Do we want to use the enumerate approach or the combinatorial one?
-ks = [2]  # On which ks do we want to test our algorithm?
+ks = [7]  # On which ks do we want to test our algorithm?
 delta = 0.8  # for now, delta doesn't really matter to the analysis
 time_out = 604800  # for now, for each execution, we're willing to wait 7 days per run, maximum
 
