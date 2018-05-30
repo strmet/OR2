@@ -49,24 +49,26 @@ def main():
 
     wf2.read_input()
 
-    edges = wf2.MST_randomized_costs(delta_interval=0)
-
-    # wf2.plot(graph)
+    # edges = wf2.MST_randomized_costs(delta_interval=0)
 
     edges = wf2.grasp(num_edges=12)
 
     prec, succ, graph = wf2.direct_mst(edges)
     cost = wf2.solution_cost(prec, succ)
-
     print("GRASP cost:")
     print(cost)
     print(math.log(cost, 10))  # debugging
+
+    prec, succ = wf2.bfs_build()
+    cost = wf2.solution_cost(prec, succ)
+    print("TOPOLOGICAL cost:")
+    print(cost)
+    print(math.log(cost, 10))  # debugging
+
     #wf2.plot(graph)
 
     strutt_dati, cost = wf2.genetic_algorithm()
-    # just so you know
-    prec = strutt_dati[0]
-    succ = strutt_dati[1]
+
     print("GenAlgo cost:")
     print(cost)
     print(math.log(cost, 10))  # debugging
