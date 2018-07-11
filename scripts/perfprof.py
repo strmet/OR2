@@ -28,7 +28,7 @@ class CmdLineParser(object):
 		self.parser = OptionParser(usage='usage: python2 perfprof.py [options] cvsfile.csv outputfile.pdf')
 		# default options
 		self.parser.add_option("-D", "--delimiter", dest="delimiter", default=None, help="delimiter for input files")
-		self.parser.add_option("-M", "--maxratio", dest="maxratio", default=4, type=int, help="maxratio for perf. profile")
+		self.parser.add_option("-M", "--maxratio", dest="maxratio", default=4, type=float, help="maxratio for perf. profile")
 		self.parser.add_option("-S", "--shift", dest="shift", default=0, type=float, help="shift for data")
 		self.parser.add_option("-L", "--logplot", dest="logplot", action="store_true", default=False, help="log scale for x")
 		self.parser.add_option("-T", "--timelimit", dest="timelimit", default=1e99, type=float, help="time limit for runs")
