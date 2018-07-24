@@ -1,18 +1,13 @@
 import cplex
 from cplex.callbacks import LazyConstraintCallback
-import time
-import multiprocessing
 
 
 class LazyCallback(LazyConstraintCallback):
-
 
     def __init__(self, env):
         LazyConstraintCallback.__init__(self, env)
 
     def __call__(self):
-
-        start = time.time()
 
         # Get solution to build cuts
         sol = [self.EdgeSol(self.ypos(i, j), i, j)
@@ -30,7 +25,3 @@ class LazyCallback(LazyConstraintCallback):
                     sense='L',
                     rhs=1.0
                 )
-
-        # Store time spent on callbacks
-        end = time.time()
-        self.sum_time += end - start

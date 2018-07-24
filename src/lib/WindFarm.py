@@ -14,7 +14,6 @@ try:
 except:
     pass
 import networkx as nx
-import pprint as pp
 import os.path
 import warnings
 import time
@@ -61,7 +60,6 @@ class WindFarm:
         self.__flux_slack_start = 0
         self.__points = []
         self.__cables = []
-        self.c = 7
 
         # Data counters
         self.__n_nodes = 0
@@ -84,24 +82,23 @@ class WindFarm:
         # Operating parameters, commenting out whatever we don't use
         self.__project_path = ''
         self.__cluster = False
-        self.time_limit = 60
+        self.__time_limit = 60
         self.__rins = 7
-        self.polishtime = int(1e12)
+        self.__polishtime = int(1e12)
         self.__substation_slack = True
         self.__flux_slack = True
-        self.cross_mode = 'no'
+        self.__cross_mode = 'no'
         self.__debug_mode = False
-        self.verbosity = 0
         self.__interface = 'cplex'
-        self.__metaheuristic = None
+        self.__matheuristic = None
         self.__overall_wait_time = 1200
 
         # Dataset selection and consequent input files building, and output parameters
-        self.data_select = 1
+        self.__data_select = 1
 
         # Building the input/output files, while parsing the command line.
         self.__build_input_files()
-        self.out_dir_name = 'test'
+        self.__out_dir_name = 'test'
 
     # Private methods, internal to our class:
     def __read_turbines_file(self):
@@ -234,6 +231,8 @@ class WindFarm:
         :return:
 
         """
+        if self.__cross_mode == 'lazy':
+            start = time.clock()
 
         if not self.__interface == 'cplex':
             raise NameError("For some reason the classical model has been called when " +
@@ -428,7 +427,7 @@ class WindFarm:
         )
 
         # (in case) No-crossing lazy constraints
-        if self.cross_mode == 'lazy' or self.cross_mode == 'normal':
+        if self.__cross_mode == 'lazy' or self.__cross_mode == 'normal':
             for i, a in enumerate(self.__points):
                 # We want to lighten these constraints as much as possible; for this reason, j=i+1
                 for j, b in enumerate(self.__points[i+1:], start=i+1):
@@ -447,16 +446,22 @@ class WindFarm:
 
         # Adding the parameters to the model
         self.__model.parameters.mip.strategy.rinsheur.set(self.__rins)
-        if self.polishtime < self.time_limit:
-            self.__model.parameters.mip.polishafter.time.set(self.polishtime)
+        if self.__polishtime < self.__time_limit:
+            self.__model.parameters.mip.polishafter.time.set(self.__polishtime)
 
         # The following asks CPLEX to measure its time with REAL CPU time.
-        #self.__model.parameters.clocktype.set(1)
+        self.__model.parameters.clocktype.set(1)
 
-        self.__model.parameters.timelimit.set(self.time_limit)
+        if self.__cross_mode == 'lazy':
+            end = time.clock()
+            time_spent = end - start
+        else:
+            time_spent = 0
 
+        self.__model.parameters.timelimit.set(self.__time_limit - time_spent)
+        print(self.__model.parameters.timelimit.get())
         # Writing the model to a proper location
-        self.__model.write(self.__project_path + "/out/" + self.out_dir_name + "/lpmodel.lp")
+        #self.__model.write(self.__project_path + "/out/" + self.__out_dir_name + "/lpmodel.lp")
 
     def __build_model_docplex(self):
 
@@ -475,8 +480,8 @@ class WindFarm:
         self.__model = Model(name=self.__name)
 
         # Time measurement within the solver
-        #self.__model.set_TimeMode('CPUTime')
-        self.__model.set_time_limit(self.time_limit)
+        self.__model.set_TimeMode('CPUTime')
+        self.__model.set_time_limit(self.__time_limit)
 
         # Add y(i,j) variables
         self.__y_start = self.__model.get_statistics().number_of_variables
@@ -635,7 +640,7 @@ class WindFarm:
         )
 
         # No-crossing lazy constraints don't work in docplex.
-        if not self.cross_mode == 'no':
+        if not self.__cross_mode == 'no':
             raise ValueError("No crossings when using docplex.")
 
         # Objective function
@@ -659,12 +664,12 @@ class WindFarm:
 
         # Adding the parameters to the model
         self.__model.parameters.mip.strategy.rinsheur.set(self.rins)
-        if self.polishtime < self.time_limit:
-            self.__model.parameters.mip.polishafter.time.set(self.polishtime)
-        self.__model.parameters.timelimit.set(self.time_limit)
+        if self.__polishtime < self.__time_limit:
+            self.__model.parameters.mip.polishafter.time.set(self.__polishtime)
+        self.__model.parameters.timelimit.set(self.__time_limit)
 
         # Writing the model to a proper location
-        self.__model.export_as_lp(path=self.__project_path+"/out/" + self.out_dir_name + "/lpmodel.lp")
+        self.__model.export_as_lp(path=self.__project_path+"/out/" + self.__out_dir_name + "/lpmodel.lp")
 
     def __get_solution(self, var='x'):
 
@@ -731,14 +736,14 @@ class WindFarm:
 
         """
 
-        if not type(self.data_select) == int:
-            raise TypeError("Expecting an integer value representing the dataset. Given: " + str(self.data_select))
-        if self.data_select <= 0 or self.data_select >= 32:
+        if not type(self.__data_select) == int:
+            raise TypeError("Expecting an integer value representing the dataset. Given: " + str(self.__data_select))
+        if self.__data_select <= 0 or self.__data_select >= 32:
             raise ValueError("The dataset you're trying to reach is out of range.\n" +
-                             "Range: [1-31]. Given: " + str(self.data_select))
+                             "Range: [1-31]. Given: " + str(self.__data_select))
 
-        data_tostring = str(self.data_select)
-        if 1 <= self.data_select <= 9:
+        data_tostring = str(self.__data_select)
+        if 1 <= self.__data_select <= 9:
             data_tostring = "0" + data_tostring
 
         abspath = os.path.abspath(os.path.dirname(__file__)).strip()
@@ -770,36 +775,36 @@ class WindFarm:
 
         """
 
-        if not type(self.data_select) == int:
-            raise TypeError("Expecting an integer value representing the dataset. Given: " + str(self.data_select))
-        if self.data_select <= 0 or self.data_select >= 32:
+        if not type(self.__data_select) == int:
+            raise TypeError("Expecting an integer value representing the dataset. Given: " + str(self.__data_select))
+        if self.__data_select <= 0 or self.__data_select >= 32:
             raise ValueError("The dataset you're trying to reach is out of range.\n" +
-                             "Range: [1-31]. Given: " + str(self.data_select))
+                             "Range: [1-31]. Given: " + str(self.__data_select))
 
         # We assume that, in this context, we'll never have a WF >=10
         wf_number = 0
-        if 0 <= self.data_select <= 6:
+        if 0 <= self.__data_select <= 6:
             wf_number = 1
             self.c = 10
-        elif 7 <= self.data_select <= 15:
+        elif 7 <= self.__data_select <= 15:
             wf_number = 2
             self.c = 100
-        elif 16 <= self.data_select <= 19:
+        elif 16 <= self.__data_select <= 19:
             wf_number = 3
             self.c = 4
-        elif 20 <= self.data_select <= 21:
+        elif 20 <= self.__data_select <= 21:
             wf_number = 4
             self.c = 10
-        elif 26 <= self.data_select <= 29:
+        elif 26 <= self.__data_select <= 29:
             wf_number = 5
             self.c = 10
-        elif 30 <= self.data_select <= 31:
+        elif 30 <= self.__data_select <= 31:
             wf_number = 6
             self.c = 12
 
         if wf_number == 0:
             raise ValueError("Something went wrong with the Wind Farm number;\n" +
-                             "check the dataset selection parameter: " + str(self.data_select))
+                             "check the dataset selection parameter: " + str(self.__data_select))
 
         self.__name = "Wind Farm 0" + str(wf_number)
 
@@ -921,8 +926,11 @@ class WindFarm:
 
         """
 
-        if self.cross_mode == 'lazy':
-            constraint_add = self.__model.linear_constraints.advanced.add_lazy_constraints
+        if self.__cross_mode == 'lazy':
+            if self.__cluster is True:
+                constraint_add = self.__model.linear_constraints.advanced.add_lazy_cuts
+            else:
+                constraint_add = self.__model.linear_constraints.advanced.add_lazy_constraints
         else:
             constraint_add = self.__model.linear_constraints.add
 
@@ -938,7 +946,7 @@ class WindFarm:
                 rhs=[1]
             )
 
-    # Public methods
+
     def parse_command_line(self):
 
         """
@@ -975,18 +983,18 @@ class WindFarm:
                             help='type --noslack if you do not want the slack on the flux')
         parser.add_argument('--crossings', choices=['no', 'lazy', 'loop', 'callback', 'normal'],
                             help='Choose how you want to address the crossing problem')
-        parser.add_argument('--metaheuristic', choices=['hard', 'soft'],
-                            help='Choose one metaheuristic method to wrap the execution')
+        parser.add_argument('--matheuristic', choices=['hard', 'soft'],
+                            help='Choose one matheuristic method to wrap the execution')
         parser.add_argument('--overall_wait_time', type=int,
                             help='Used in hard/soft fixing and loop method to stop the execution')
 
         args = parser.parse_args()
 
         if args.outfolder:
-            self.out_dir_name = args.outfolder
+            self.__out_dir_name = args.outfolder
 
         if args.dataset:
-            self.data_select = args.dataset
+            self.__data_select = args.dataset
 
         if args.cluster:
             self.__cluster = True
@@ -999,18 +1007,18 @@ class WindFarm:
                           ParseWarning)
             self.__interface = 'cplex'
 
-        if args.rins:
-            if args.rins <= -2:
-                warnings.warn("RINS parameter given is not valid. Given: " + str(args.rins) +
-                              ". Using the default value: " + str(self.__rins))
-            else:
-                self.__rins = args.rins
+
+        if args.rins <= -2:
+            warnings.warn("RINS parameter given is not valid. Given: " + str(args.rins) +
+                          ". Using the default value: " + str(self.__rins))
+        else:
+            self.__rins = args.rins
 
         if args.timeout:
-            self.time_limit = args.timeout
+            self.__time_limit = args.timeout
 
         if args.polishtime:
-            self.polishtime = args.polishtime
+            self.__polishtime = args.polishtime
 
         if args.nosubstationslack:
             self.__substation_slack = False
@@ -1019,14 +1027,14 @@ class WindFarm:
             self.__flux_slack = False
 
         if args.crossings:
-            self.cross_mode = args.crossings
+            self.__cross_mode = args.crossings
 
-        if args.metaheuristic:
-            self.__metaheuristic = args.metaheuristic
+        if args.matheuristic:
+            self.__matheuristic = args.matheuristic
 
         if args.overall_wait_time:
             self.__overall_wait_time = args.overall_wait_time
-            if self.__overall_wait_time<self.time_limit:
+            if self.__overall_wait_time<self.__time_limit:
                 raise ValueError("Can't set the overall wait time under the single iteration time.")
 
         self.__build_input_files()
@@ -1060,9 +1068,7 @@ class WindFarm:
 
         """
 
-        if self.cross_mode == 'callback':
-            # CPLEX disables parallelism, force it to the maximum number of cores available
-            self.__model.parameters.threads.set(multiprocessing.cpu_count())
+        if self.__cross_mode == 'callback':
 
             # Install the callback
             lazycb = self.__model.register_callback(LazyCallback)
@@ -1072,27 +1078,29 @@ class WindFarm:
             lazycb.get_violated_edges = self.__get_violated_edges
             lazycb.ypos = self.__ypos
             lazycb.EdgeSol = self.__EdgeSol
-            lazycb.sum_time = 0
             lazycb.n_cables = self.__n_cables
             lazycb.model = self.__model
 
             self.__model.solve()
-
-        elif self.cross_mode == 'lazy' or self.cross_mode == 'no' or self.cross_mode == 'normal':
+            self.__best_incumbent = self.__model.solution.get_objective_value()
+        elif self.__cross_mode == 'lazy' or self.__cross_mode == 'no' or self.__cross_mode == 'normal':
             # This simply means that CPLEX has everything he needs to have inside his enviroment
             self.__model.solve()
+            self.__best_incumbent = self.__model.solution.get_objective_value()
 
-        elif self.cross_mode == 'loop':
+        elif self.__cross_mode == 'loop':
             self.__model.parameters.advance.set(1)
             xs = True       # "are there any crosses in this solution?"
             opt = False     # "has the optimum been reached?"
 
-            for i in range(3):
+            starting_gap = 1
+            while starting_gap >= 0.3 and time.clock() - self.__starting_time < self.__overall_wait_time:
                 self.__model.solve()
+                starting_gap = self.__model.solution.MIP.get_mip_relative_gap()
 
-            while (xs or not opt) and time.clock() - self.__starting_time < self.__overall_wait_time * self.__model.parameters.threads.get():
+            while (xs or not opt) and time.clock() - self.__starting_time < self.__overall_wait_time:
                 self.__model.solve()
-                self.plot_solution(edges=self.__get_solution(var='x'), high=False)
+                #self.plot_solution(edges=self.__get_solution(var='x'), high=False)
 
                 violations = self.__get_violated_edges(self.__get_solution(var='y'))
 
@@ -1102,15 +1110,17 @@ class WindFarm:
                         self.__add_violating_constraint(violation)
                 else:
                     xs = False
-                    self.__best_sol = self.__get_solution()
-                    self.__best_incumbent = self.__model.solution.get_objective_value()
+
+                    if self.__best_incumbent > self.__model.solution.get_objective_value():
+                        self.__best_sol = self.__get_solution()
+                        self.__best_incumbent = self.__model.solution.get_objective_value()
 
                 if self.__model.solution.get_status() == self.__model.solution.status.MIP_optimal:
                     opt = True
 
             self.__model.parameters.advance.set(0)
         else:
-            raise ValueError("Unrecognized cross-strategy; given: " + str(self.cross_mode))
+            raise ValueError("Unrecognized cross-strategy; given: " + str(self.__cross_mode))
 
     def __hard_fix(self):
 
@@ -1121,21 +1131,22 @@ class WindFarm:
         :return: None
 
         """
+        print("Hard fixing")
 
         optimum = False     # "has the optimum been reached?"
         probability = 0.9
         self.__model.parameters.advance.set(1)
         starting_gap = 1
-        while starting_gap >= 0.70:
+        while starting_gap >= 0.3 and time.clock() - self.__starting_time < self.__overall_wait_time:
             self.__exact_solve()
             starting_gap = self.__model.solution.MIP.get_mip_relative_gap()
 
         starting_best_bound = starting_gap * self.__model.solution.get_objective_value()
 
-        while not optimum and time.clock() - self.__starting_time < self.__overall_wait_time * self.__model.parameters.threads.get():
+        while not optimum and time.clock() - self.__starting_time < self.__overall_wait_time:
 
             sol = self.__get_solution(var='y')
-            self.plot_solution(self.__get_solution(var='x'))
+            #self.plot_solution(self.__get_solution(var='x'))
 
             for edge in sol:
                 if random.random() > probability:
@@ -1145,13 +1156,14 @@ class WindFarm:
                         1
                     )
 
-                    violations = self.__reduce_metaheuristic_iteration(edge)
+                    if self.__cross_mode is not 'no':
+                        violations = self.__reduce_metaheuristic_iteration(edge)
 
-                    for violation in violations:
-                        self.__model.variables.set_upper_bounds(
-                            violation.idx,
-                            0
-                        )
+                        for violation in violations:
+                            self.__model.variables.set_upper_bounds(
+                                violation.idx,
+                                0
+                            )
 
             self.__exact_solve()
 
@@ -1179,18 +1191,17 @@ class WindFarm:
         """
 
         optimum = False     # "has the optimum been reached?"
-        k = 0.90
+        k = 0.4
         self.__model.parameters.advance.set(1)
         starting_gap = 1
-        while starting_gap >= 0.70:  # We do this to AT LEAST have a feasible solution (with no slacks==1)
+        while starting_gap >= 0.30 and time.clock() - self.__starting_time < self.__overall_wait_time:  # We do this to AT LEAST have a feasible solution (with no slacks==1)
             self.__exact_solve()
             starting_gap = self.__model.solution.MIP.get_mip_relative_gap()
 
         starting_best_bound = starting_gap * self.__model.solution.get_objective_value()
-        while not optimum and time.clock() - self.__starting_time < self.__overall_wait_time * self.__model.parameters.threads.get():
+        while not optimum and time.clock() - self.__starting_time < self.__overall_wait_time:
 
             selected_edges = self.__get_solution(var='y')
-            self.plot_solution(self.__get_solution(var='x'))
 
             self.__model.linear_constraints.add(
                 lin_expr=[cplex.SparsePair(
@@ -1215,7 +1226,7 @@ class WindFarm:
 
         self.__true_gap = starting_best_bound / self.__best_incumbent
         print("True gap: ", self.__true_gap)
-        self.plot_solution(self.__best_sol)
+        #self.plot_solution(self.__best_sol)
 
     def solve(self):
 
@@ -1226,9 +1237,9 @@ class WindFarm:
         :return: None
 
         """
-
+        print(self.__model.get_version())
         print("Rins = ", self.__model.parameters.mip.strategy.rinsheur.get())
-        self.__model.parameters.threads.set(multiprocessing.cpu_count())
+        self.__model.parameters.threads.set(8)
         start_time = time.time()
         if self.__cluster:
             self.__model.parameters.randomseed = random.randint(0, sys.maxsize)
@@ -1237,15 +1248,18 @@ class WindFarm:
             print("Dataset:", self.__data_select)
 
         self.__starting_time = time.clock()
-        if self.__metaheuristic is None:
+        if self.__matheuristic is None:
             self.__exact_solve()
-        elif self.__metaheuristic == 'hard':
-            self.__hard_fix()
-        elif self.__metaheuristic == 'soft':
+        elif self.__matheuristic == 'hard':
+            try:
+                self.__hard_fix()
+            except:
+                pass
+        elif self.__matheuristic == 'soft':
             self.__soft_fix()
         else:
-            raise ValueError("Unrecognized heuristic technique; given: " + str(self.__metaheuristic))
-
+            raise ValueError("Unrecognized heuristic technique; given: " + str(self.__matheuristic))
+        print(self.__best_incumbent)
         print("Elapsed time CPU: ", time.clock() - self.__starting_time)
         print("Elpased true time: ", time.time() - start_time)
 
@@ -1271,19 +1285,22 @@ class WindFarm:
 
         """
 
-        with open(self.__project_path + "/out/" + self.out_dir_name + "/" + file_name, 'r') as fp:
+        with open(self.__project_path + "/out/" + self.__out_dir_name + "/" + file_name, 'r') as fp:
             file_content = fp.readlines()
 
             num_columns = len(file_content[0].split(sep=','))
 
-        with open(self.__project_path + "/out/" + self.out_dir_name + "/" + file_name, 'a') as fp:
+        with open(self.__project_path + "/out/" + self.__out_dir_name + "/" + file_name, 'a') as fp:
 
             num_tokens_last_line = len(file_content[-1].split(sep=','))
 
             if num_tokens_last_line == num_columns:  # Write down the instance name
                 fp.write("\ndata" + str(self.__data_select))
 
-            fp.write("," + str(self.__model.solution.get_objective_value()))
+            if (self.__matheuristic == 'hard' or self.__matheuristic == 'soft' or self.__cross_mode == 'loop'):
+                fp.write("," + str(self.__best_incumbent))
+            else:
+                fp.write("," + str(self.__model.solution.get_objective_value()))
 
     def write_solutions(self):
 
@@ -1297,7 +1314,7 @@ class WindFarm:
 
         """
 
-        self.__model.solution.write(self.__project_path + "/out/" + self.out_dir_name + "/mysol.sol", 'r')
+        self.__model.solution.write(self.__project_path + "/out/" + self.__out_dir_name + "/mysol.sol", 'r')
         return self.__get_solution()
 
     def read_input(self):
@@ -1391,7 +1408,7 @@ class WindFarm:
             )
         )
 
-        py.plot(fig, filename=self.__project_path + '/out/' + self.out_dir_name + '/img/wind_farm.html')
+        py.plot(fig, filename=self.__project_path + '/out/' + self.__out_dir_name + '/img/wind_farm.html')
 
         if high:
             self.__plot_high_quality(edges=self.__get_solution(var='x'))
