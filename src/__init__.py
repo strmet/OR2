@@ -59,11 +59,11 @@ def main():
     print(cost)
     print(math.log(cost, 10))  # debugging
 
-    prec, succ = wf2.bfs_build()
+    '''prec, succ = wf2.bfs_build()
     cost = wf2.solution_cost(prec, succ)
     print("TOPOLOGICAL cost:")
     print(cost)
-    print(math.log(cost, 10))  # debugging
+    print(math.log(cost, 10))  # debugging'''
 
     #wf2.plot(graph)
 
