@@ -40,6 +40,7 @@ class Heuristics:
         self.__Point = namedtuple("Point", ["x", "y", "power"])
         self.__Cable = namedtuple("Cable", ["capacity", "price", "max_usage"])
         self.__sorted_distances = None
+        self.__lookup_distances = None
 
         # Parameters
         self.__encode = self.__prufer_encode
@@ -65,7 +66,7 @@ class Heuristics:
         parser.add_argument('--dataset', type=int,
                             help="dataset selection; datasets available: [1,29]. " +
                                  "You can use '30' for debug purposes")
-        parser.add_argument('--strategy', type=str, choices=['prufer', 'succ'],
+        parser.add_argument('--strategy', type=str, choices=['prufer', 'succ', 'kruskal'],
                             help="Choose the heuristic strategy to apply")
         parser.add_argument('--cluster', action="store_true",
                             help='type --cluster if you want to use the cluster')
@@ -100,7 +101,11 @@ class Heuristics:
             self.__prufer = True
         elif args.strategy == 'succ':
             self.__encode = lambda x,y: y
-            self.__decode = self.__succ_decode
+            self.__decode = self.__succloopfix_decode
+            self.__prufer = False
+        elif args.strategy == 'kruskal':
+            self.__encode = lambda x,y: y
+            self.__decode = self.__succkruskal_decode
             self.__prufer = False
         else:
             print("No strategy given; the standard one is Prufer.")
@@ -222,6 +227,14 @@ class Heuristics:
             for i,p1 in enumerate(self.__points)
         ]
 
+        self.__lookup_distances = {
+            i: {
+                j: [WindFarm.get_distance(p1,p2), i,j]
+                for j,p2 in enumerate(self.__points)
+            }
+            for i,p1 in enumerate(self.__points)
+        }
+
         self.__chromosome_len = self.__n_nodes-1 if self.__prufer else self.__n_nodes
 
         # self.__build_polygon()
@@ -259,6 +272,7 @@ class Heuristics:
 
         self.__read_turbines_file()
         self.__read_cables_file()
+
 
     def MST_randomized_costs(self, delta_interval=0.1):
 
@@ -560,8 +574,8 @@ class Heuristics:
         return edges
 
     def genetic_algorithm(self,
-                          pop_number=300,
-                          diversification_rate=7,
+                          pop_number=200,
+                          diversification_rate=10,
                           memory=True):
         """
         This is the main structure of the genetic algorithm,
@@ -579,17 +593,16 @@ class Heuristics:
         print("Generating",pop_number,"solutions. This may take a while.")
         pop = []  # t=1: 'first generation'
 
-        grasp_pop = int(pop_number*(1/5))  # TODO we're experimenting proportions, here
+        grasp_pop = int(pop_number*(2/7))  # TODO we're experimenting proportions, here
         for i in range(grasp_pop):
             prec, succ, tree = self.direct_mst(self.grasp(num_edges=5))
             pop.append((self.solution_cost(prec, succ), self.__encode(prec, succ)))
 
-        bfs_pop = int(pop_number*(1/5))  # TODO we're experimenting proportions, here
+        bfs_pop = int(pop_number*(4/7))  # TODO we're experimenting proportions, here
         for i in range(bfs_pop):
             prec, succ = self.bfs_build(substation=0, nearest_per_node=7, selected_per_node=3)
             pop.append((self.solution_cost(prec, succ), self.__encode(prec, succ)))
-
-        rnd_number = pop_number-bfs_pop-grasp_pop
+        rnd_number = pop_number-grasp_pop#-bfs_pop
         for i in range(rnd_number):    # TODO we're experimenting proportions, here
             random_chromosome = [random.randint(0,self.__n_nodes-1) for i in range(self.__chromosome_len)]
             prec, succ = self.__decode(random_chromosome)
@@ -684,7 +697,7 @@ class Heuristics:
 
         for t in pop:
             if random.random() < select_prob:
-                mutated_chromosome = self.__gamma_ray(t[1], single_mut_prob)
+                mutated_chromosome = self.__gamma_ray(t[1], prob=single_mut_prob)
                 prec, succ = self.__decode(mutated_chromosome)
                 new_cost = self.solution_cost(prec, succ)
                 mutated_pop.append((new_cost, mutated_chromosome))
@@ -793,7 +806,7 @@ class Heuristics:
         for idx,x in enumerate(newchild):  # search again for duplicates
             string = str(x)
             if string in seen:  # if so, just randomize this single chromosome...
-                self.__gamma_ray(newchild[idx], prob=0.20)
+                self.__single_gamma_ray(newchild[idx])
 
         # at this point, the population may have duplicates with low probability,
         # but at least we modified the most we can
@@ -981,10 +994,8 @@ class Heuristics:
             succ[next_node] = node
             prec[node].append(next_node)
             succ[node] = node  # Root condition in our data structures.
-        else:
-            succ[node] = node
 
-        # At this point, node is the new root.
+        # At this point, we're sure that node is the new root.
         # Other recursive calls will fix the situation, if necessary.
 
         return
@@ -1023,6 +1034,8 @@ class Heuristics:
     def bfs_build(self, substation=0, nearest_per_node=5, selected_per_node=2):
         """
         This method builds a solution with a BFS-like search.
+        It is a personalized method on which we've tried to out-perform
+        random trees and/or the GRASP method.
 
         :param substation: which node is our substation?
         :param nearest_per_node: how many nodes are considered for the linking?
@@ -1037,7 +1050,7 @@ class Heuristics:
         for i in range(1000):
             random.random()
 
-        # 12 is the maximum of every dataset, besides the infinite-cable one.
+        # c=12 is the maximum of every dataset, besides the infinite-cable one.
         c = min(self.__c, 12)
 
         # It takes at least the following number to have a sustainable solution
@@ -1060,7 +1073,7 @@ class Heuristics:
             for i in range(self.__n_nodes)
         ]
         succ = [
-            i
+            substation
             for i in range(self.__n_nodes)
         ]
         visited = set()
@@ -1120,14 +1133,153 @@ class Heuristics:
 
         return prec, succ
 
-    def __succ_decode(self, chromosome, substation=0):
+    def __succkruskal_decode(self, chromosome, substation=0):
+        """
+
+        :param chromosome:
+        :param substation:
+        :return:
+        """
+
+        # Some initializations:
+
+        # These two are the actual data structure we use
+        prec = [[] for i in range(self.__n_nodes)]
+        succ = [-1 for i in range(self.__n_nodes)]
+
+        # This adjacency list should help to implement Kruskal's algorithm.
+        adjacency_list = [[] for i in range(self.__n_nodes)]
+
+        # We make a deepcopy of the lookup table of the distances,
+        # so that we can later modify it.
+        # This should be faster than re-calculating O(n^2) distances every time.
+        # Also, we want it to be a list, now (and not a dict)
+        this_table = [
+            [
+                self.__lookup_distances[i][j] if i != j else [1e12, i,j]
+                for j in self.__lookup_distances[i]
+            ]
+            for i in self.__lookup_distances
+        ]
+
+        # We update the distances table: this is the main idea of the
+        # Kruskal-repair method; each edge included in the encoding (succ),
+        # is the most desirable (because it has the solution we're looking for),
+        # therefore we want such edge into the final tree.
+        # To implement this, we drastically reduce their cost, so that Kruskal's algorithm
+        # will pick that edge up first.
+        for idx, g in enumerate(chromosome):
+            if not (idx == g and idx != substation):
+                this_table[idx][g][0] = self.__lookup_distances[idx][g][0]/1e6
+
+        # Now, Kruskal wants a sorted list of edges;
+        # I saw we can heapify that list, so that it is less expensive.
+        sorted_table = []
+        for l in this_table:
+            for element in l:
+                sorted_table.append(element)
+        heapq.heapify(sorted_table)
+
+        # Kruskal needs to know the connected components of the edges;
+        # we implement a dictionary in which each node has its set,
+        # representing the connected component the node is at.
+        connect_comp = {
+            i: {i} for i in range(self.__n_nodes)
+        }
+        edge_counter = 0  # "How many edges have we selected, yet?"
+
+        #self.plot(self.get_graph(chromosome))
+        #input()
+
+        # The implementation of Kruskal algorithm is here:
+        # we know that it won't pick edges that create loops/etc.
+        while edge_counter < self.__n_nodes-1:
+            # Recall:
+            # edge[0] has the distance between:
+            #   - edge[1] (source) and
+            #   - edge[2] (destination).
+
+            edge = heapq.heappop(sorted_table)  # Extract the less expensive edge
+            #print(edge)
+
+            # If this edge doesn't create loops, add it to the optimal tree
+            if edge[1] in connect_comp[edge[2]] or edge[2] in connect_comp[edge[1]]:
+                pass  # TODO: volevo solo essere sicuro di aver espresso bene la condizione logica, eliminare else.
+            else:
+                edge_counter += 1  # We added a new edge into the anti-arborescence
+                #print("Aggiunto il lato", edge, "Componenti vecchie:")
+                #print(connect_comp)
+                # We update the connected component of the two nodes involved
+                # (by merging their components)
+                # Altough merging seem an easy task (thank to the operator |),
+                # Python pointers may mess up the work.
+                # We need to force Python to refer to the elements of the CC
+                # with pointers, by avoiding deep-copies.
+
+                # TODO: non c'è un modo più efficiente per gestire la problematica dei puntatori? :-|
+                temp = connect_comp[edge[1]] | connect_comp[edge[2]]
+                for el in temp:
+                    connect_comp[el] = temp
+                #print("Componenti nuove:")
+                #print(connect_comp)
+                # We actually add the edge by updating our adjacency list.
+                adjacency_list[edge[2]].append(edge[1])
+                adjacency_list[edge[1]].append(edge[2])
+
+        #pp.pprint(adjacency_list)
+
+        # Now, we want to build the prec/succ data structures.
+        #
+        # To do so, the idea is to explore the neighborhood of each node.
+        # For each neighbor, we orientate the edge accordingly.
+        # Here, "visited a node" == actually added it on prec/succ data structures.
+
+        to_visit = {substation}  # We start from the substation
+        visited = set()  # No nodes visited, yet.
+        while len(to_visit) > 0:  # Until there's nothing to visit, re-iterate!
+            current_node = to_visit.pop()  # Pop out one arbitrary element from the "to-do" set
+            visited.add(current_node)  # Set this node as visited, so that we won't encounter him again
+            # Extract its neighbors, by ignoring the already visited nodes.
+            current_neighbors = set(adjacency_list[current_node]) - visited
+
+            #print("Current node:", current_node)
+            #print("Its neighbors:", adjacency_list[current_node])
+            #print("Visited until now:", visited)
+            #print("Neighbors with the cleaning:", current_neighbors)
+
+            for neighbor in current_neighbors:
+                prec[current_node].append(neighbor)
+                succ[neighbor] = current_node
+                to_visit.add(neighbor)
+
+        # We know that, in our implementation, the substation has itself as successor, because it's the root.
+        # Note how no treefix is needed with this implementation.
+        succ[substation] = substation
+
+        #print(succ)
+        #self.plot(self.get_graph(succ))
+        #input()
+
+        return prec, succ
+
+    def __succloopfix_decode(self, chromosome, substation=0):
         """
         Decoding the succ data structure with our own personal method (DFS_loopfix)
+
+        Decoding directly into the prec data structure is easy,
+        what's not easy is fixing the problems that this may cause.
+
+        Problems include loops and disconnected components.
 
         :param chromosome: Remember, here chromosome === succ
         :param substation: Where is the substation, in this data-set?
         :return: prec, succ
         """
+
+        # Here, we choose to simply copy everything in the prec structure
+        # and then manually think about loops and disconnected components
+        # with an algorithm thought by us.
+
         prec = [[] for i in range(self.__n_nodes)]
         for idx, g in enumerate(chromosome):
             if g != idx:  # The root can't have itself as predecessor.
@@ -1142,17 +1294,18 @@ class Heuristics:
                 for idx, x in enumerate(chromosome)
                 if x == idx and x in not_visited
             ]  # Extract the roots of every connected component
-            #print("We have those roots:",roots)
-            #input()
+
             for root in roots:
                 visited = set()
                 self.__treevisit(prec, chromosome, root, visited, not_visited)  # Visit them
                 connected_components[root] = visited
-            if len(not_visited) > 0:  # If we've left behind some nodes
-                # This means, because of the theorem, that we have a loop, somewhere.
+            if len(not_visited) > 0:
+                # If at this point, still, we've left behind some nodes, then,
+                # because of the theorem, we have a loop, somewhere.
+                # (you can find more about such theorem in the DFS_loopfix function)
+
                 rnd_node = random.sample(not_visited, 1)[0]  # Pick a random node to start the loop-search
-                visited_in_this_cc = set()  # Elements visited in this connected components
-                self.__DFS_loopfix(rnd_node, prec, chromosome, visited_in_this_cc)
+                self.__DFS_loopfix(rnd_node, prec, chromosome, visited=set())
 
         # At this point, we may have several disconnected components.
         roots = [
@@ -1161,23 +1314,15 @@ class Heuristics:
             if x == idx
         ]  # extract the roots of every connected component
 
-        #print(connected_components)
-        if substation in connected_components:  # This may be useful for efficacy/efficiency purposes
-            roots.remove(substation)
+        if substation in connected_components:  # This may be useful for efficiency purposes
+            roots.remove(substation)  # doesn't make sense to explore the cc of the substation, does it?
 
         while len(connected_components) > 1:  # are there multiple connected components?
-            root = random.choice(roots)  # select any
-            #self.plot(self.get_graph(chromosome))
-            #print("root:",root)
-            #print("prec[root]:",prec[root])
-            #print("succ[root]:",chromosome[root])
+            root = random.choice(roots)  # then, select any
 
             # Find the closest point to this root:
             # such point can't be in the connected component of the root.
             closest = self.__find_closest(root, connected_components[root])
-            #print("closest:",closest)
-            #print("prec[closest]:", prec[closest])
-            #print("succ[closest]:", chromosome[closest])
             chromosome[root] = closest
             prec[closest].append(root)
 
@@ -1185,8 +1330,7 @@ class Heuristics:
             closest_root = self.__find_corresponding_connected_component(closest, connected_components)
             connected_components[closest_root] = connected_components[root] | connected_components[closest_root]
             del connected_components[root]
-            #print("Updated connected components:",connected_components)
-            #input()
+
             # We have one less connected component, now.
             roots.remove(root)
 
@@ -1241,13 +1385,12 @@ class Heuristics:
         :return: Nothing. The connected component visited with this method and
                 the 'not_visited' data structures will be directly modified.
         """
-        #print("node:", node)
+
         not_visited.remove(node)
         visited.add(node)
-        #print("adding it to visited:",visited)
+
         precs = prec[node]
-        #print("precs:", precs)
-        #input()
+
         for p in precs:
             self.__treevisit(prec, succ, p, visited, not_visited)
 
@@ -1270,7 +1413,7 @@ class Heuristics:
             TH:
                 - # loops in the subgraph induced by S <= 1
         
-        This means that in the moment we've found a loop and we've fixed it,
+        This means that whenever we've found a loop and we've fixed it,
         we can terminate our search.
 
         :param node: current node to be visited
