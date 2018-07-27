@@ -227,13 +227,22 @@ class Heuristics:
             for i,p1 in enumerate(self.__points)
         ]
 
-        self.__lookup_distances = {
+        '''self.__lookup_distances = {
             i: {
                 j: [WindFarm.get_distance(p1,p2), i,j]
                 for j,p2 in enumerate(self.__points)
             }
             for i,p1 in enumerate(self.__points)
-        }
+        }'''
+
+        self.__lookup_distances = sorted(
+            [
+                (WindFarm.get_distance(p1,p2), i,j) if i != j else (1e12, i,j)
+                for j,p2 in enumerate(self.__points)
+                for i,p1 in enumerate(self.__points)
+            ],
+            key=lambda x:x[0]
+        )
 
         self.__chromosome_len = self.__n_nodes-1 if self.__prufer else self.__n_nodes
 
@@ -393,8 +402,8 @@ class Heuristics:
             cost += M2 * (len(prec[substation]) - self.__c)
 
         # Phase 3: crossings
-        # TODO: re-introduce the crossings inside the cost
-        '''num_crossings = 0
+        '''# TODO: re-introduce the crossings inside the cost
+        num_crossings = 0
         for e1 in edgesols:
             violating_edges = [
                 e2 for e2 in edgesols
@@ -598,10 +607,10 @@ class Heuristics:
             prec, succ, tree = self.direct_mst(self.grasp(num_edges=5))
             pop.append((self.solution_cost(prec, succ), self.__encode(prec, succ)))
 
-        bfs_pop = int(pop_number*(4/7))  # TODO we're experimenting proportions, here
+        '''bfs_pop = int(pop_number*(4/7))  # TODO we're experimenting proportions, here
         for i in range(bfs_pop):
             prec, succ = self.bfs_build(substation=0, nearest_per_node=7, selected_per_node=3)
-            pop.append((self.solution_cost(prec, succ), self.__encode(prec, succ)))
+            pop.append((self.solution_cost(prec, succ), self.__encode(prec, succ)))'''
         rnd_number = pop_number-grasp_pop#-bfs_pop
         for i in range(rnd_number):    # TODO we're experimenting proportions, here
             random_chromosome = [random.randint(0,self.__n_nodes-1) for i in range(self.__chromosome_len)]
@@ -621,9 +630,8 @@ class Heuristics:
         intensification_phase = True
 
         # remove after debugging (visualizating purposes)
-        prec, succ = self.__decode(BEST_chromosome)
-        self.plot(self.get_graph(succ))
-
+        #prec, succ = self.__decode(BEST_chromosome)
+        #self.plot(self.get_graph(succ))
         # Iterations counter(s)
         j = 0
         int_counter = 0
@@ -1133,130 +1141,102 @@ class Heuristics:
 
     def __succkruskal_decode(self, chromosome, substation=0):
         """
+        Decoding the succ data structure by exploiting Kruskal's algorithm.
 
-        :param chromosome:
-        :param substation:
-        :return:
+        Decoding directly into the prec data structure is easy:
+        what's not easy is fixing the problems that this may cause.
+        (e.g. loops, disconnected components).
+
+        Since the succ structure can be arbitrarily modified by the genetic algorithm,
+        in the moment we want to decode it into an acceptable tree, we must fix it.
+
+        Here, we use Kruskal's algorithm to ensure we have a MST in the end of the decoding.
+
+        :param chromosome: Remember, here chromosome === succ
+        :param substation: Where is the substation, in this data-set?
+        :return: prec, succ
         """
 
-        # Some initializations:
+        #       --- Init phase ---
 
-        # These two are the actual data structure we use
-        prec = [[] for i in range(self.__n_nodes)]
-        succ = [-1 for i in range(self.__n_nodes)]
+        # "Final" (output) data structures
+        prec = [[] for i in range(self.__n_nodes)]  # Final data structure
+        succ = [-1 for i in range(self.__n_nodes)]  # Final data structure
+        # Kruskal data structures (union/find)
+        cc = [i for i in range(self.__n_nodes)]  # "connected components" data structure
 
-        # This adjacency list should help to implement Kruskal's algorithm.
-        adjacency_list = [[] for i in range(self.__n_nodes)]
+        # Private, local functions, used to manage Kruskal algorithm.
+        def root_of(v):  # This function returns the connected component of a node.
+            if cc[v] != v:
+                cc[v] = root_of(cc[v])
+            return cc[v]  # Every connected component has its "root" (so we can identify them)
 
-        # We make a deepcopy of the lookup table of the distances,
-        # so that we can later modify it.
-        # This should be faster than re-calculating O(n^2) distances every time.
-        # Also, we want it to be a list, now (and not a dict)
-        this_table = [
+        def union(v1, v2):
+            root1 = root_of(v1)
+            root2 = root_of(v2)
+            cc[root1] = cc[root2]  # This decision brings no loss of generality
+
+        # In this implementation, we think that sorting even the solution's edges can be nice.
+        # This way, we first add least expensive edges of the solution (chromosome) into the tree.
+        # There's no guarantee that this is a good idea to improve the solutions we're repairing.
+        # Also, it has a (low) computational cost, too.
+        solution_set = sorted(
             [
-                self.__lookup_distances[i][j] if i != j else [1e12, i,j]
-                for j in self.__lookup_distances[i]
-            ]
-            for i in self.__lookup_distances
-        ]
+                (WindFarm.get_distance(self.__points[idx], self.__points[g]), idx,g)
+                for idx, g in enumerate(chromosome)
+            ],
+            key=lambda x:x[0]
+        )
 
-        # We update the distances table: this is the main idea of the
-        # Kruskal-repair method; each edge included in the encoding (succ),
-        # is the most desirable (because it has the solution we're looking for),
-        # therefore we want such edge into the final tree.
-        # To implement this, we drastically reduce their cost, so that Kruskal's algorithm
-        # will pick that edge up first.
-        for idx, g in enumerate(chromosome):
-            if not (idx == g and idx != substation):
-                this_table[idx][g][0] = self.__lookup_distances[idx][g][0]/1e6
+        edge_counter = 0  # "How many edges have we added, yet?"
 
-        # Now, Kruskal wants a sorted list of edges;
-        # I saw we can heapify that list, so that it is less expensive.
-        sorted_table = []
-        for l in this_table:
-            for element in l:
-                sorted_table.append(element)
-        heapq.heapify(sorted_table)
+        # Recall that:
+        #   - t[0]: distance between source and destination
+        #   - t[1]: source
+        #   - t[2]: destination
+        for t in solution_set:
+            if root_of(t[1]) != root_of(t[2]):
+                union(t[1], t[2])
+                # adding the edge to the tree
+                prec[t[2]].append(t[1])
+                # We add them in both direction, to underline that Kruskal sets no orientation
+                prec[t[1]].append(t[2])
+                # counting the edge we've just added.
+                edge_counter += 1
 
-        # Kruskal needs to know the connected components of the edges;
-        # we implement a dictionary in which each node has its set,
-        # representing the connected component the node is at.
-        connect_comp = {
-            i: {i} for i in range(self.__n_nodes)
-        }
-        edge_counter = 0  # "How many edges have we selected, yet?"
+        # At this point, there are two cases:
+        #   (1) The tree is complete already (#edges == #nodes-1): we can ignore the following iteration
+        #   (2) The tree isn't complete, because some edges of the solution would have induced
+        #       loops (and therefore, they've been ignored): let's find the last edges with Kruskal's algorithm.
 
-        #self.plot(self.get_graph(chromosome))
-        #input()
+        i = 0  # Index, needed to explore the lookup table
 
-        # The implementation of Kruskal algorithm is here:
-        # we know that it won't pick edges that create loops/etc.
-        while edge_counter < self.__n_nodes-1:
-            # Recall:
-            # edge[0] has the distance between:
-            #   - edge[1] (source) and
-            #   - edge[2] (destination).
+        while edge_counter < self.__n_nodes-1:  # Condition for a tree to be "complete"
+            t = self.__lookup_distances[i]  # Extract the next minimum
+            if root_of(t[1]) != root_of(t[2]):  # if the two connected components are not the same
+                union(t[1], t[2])  # merge those two components, because we're connecting them
+                # adding the edge to the tree
+                prec[t[2]].append(t[1])
+                prec[t[1]].append(t[2])
+                # counting the edge we've just added.
+                edge_counter += 1
+            i += 1  # let's explore the next least-expensive edge.
 
-            edge = heapq.heappop(sorted_table)  # Extract the less expensive edge
-            #print(edge)
-
-            # If this edge doesn't create loops, add it to the optimal tree
-            if edge[1] in connect_comp[edge[2]] or edge[2] in connect_comp[edge[1]]:
-                pass  # TODO: volevo solo essere sicuro di aver espresso bene la condizione logica, eliminare else.
-            else:
-                edge_counter += 1  # We added a new edge into the anti-arborescence
-                #print("Aggiunto il lato", edge, "Componenti vecchie:")
-                #print(connect_comp)
-                # We update the connected component of the two nodes involved
-                # (by merging their components)
-                # Altough merging seem an easy task (thank to the operator |),
-                # Python pointers may mess up the work.
-                # We need to force Python to refer to the elements of the CC
-                # with pointers, by avoiding deep-copies.
-
-                # TODO: non c'è un modo più efficiente per gestire la problematica dei puntatori? :-|
-                temp = connect_comp[edge[1]] | connect_comp[edge[2]]
-                for el in temp:
-                    connect_comp[el] = temp
-                #print("Componenti nuove:")
-                #print(connect_comp)
-                # We actually add the edge by updating our adjacency list.
-                adjacency_list[edge[2]].append(edge[1])
-                adjacency_list[edge[1]].append(edge[2])
-
-        #pp.pprint(adjacency_list)
-
-        # Now, we want to build the prec/succ data structures.
-        #
-        # To do so, the idea is to explore the neighborhood of each node.
-        # For each neighbor, we orientate the edge accordingly.
-        # Here, "visited a node" == actually added it on prec/succ data structures.
-
+        # Kruskal doesn't work on directed edges: it's our duty to orientate the tree.
         to_visit = {substation}  # We start from the substation
         visited = set()  # No nodes visited, yet.
         while len(to_visit) > 0:  # Until there's nothing to visit, re-iterate!
             current_node = to_visit.pop()  # Pop out one arbitrary element from the "to-do" set
             visited.add(current_node)  # Set this node as visited, so that we won't encounter him again
             # Extract its neighbors, by ignoring the already visited nodes.
-            current_neighbors = set(adjacency_list[current_node]) - visited
-
-            #print("Current node:", current_node)
-            #print("Its neighbors:", adjacency_list[current_node])
-            #print("Visited until now:", visited)
-            #print("Neighbors with the cleaning:", current_neighbors)
+            current_neighbors = set(prec[current_node]) - visited
 
             for neighbor in current_neighbors:
-                prec[current_node].append(neighbor)
-                succ[neighbor] = current_node
+                succ[neighbor] = current_node  # We set the correct orientation
+                prec[neighbor].remove(current_node)  # We remove the un-necessary edge
                 to_visit.add(neighbor)
 
-        # We know that, in our implementation, the substation has itself as successor, because it's the root.
-        # Note how no treefix is needed with this implementation.
-        succ[substation] = substation
-
-        #print(succ)
-        #self.plot(self.get_graph(succ))
-        #input()
+        succ[substation] = substation  # In our implementation, the substation has itself as successor
 
         return prec, succ
 

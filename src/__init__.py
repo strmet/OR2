@@ -72,7 +72,9 @@ def main():
     print("GenAlgo cost:")
     print(cost)
     print(math.log(cost, 10))  # debugging
-    wf2.plot(wf2.get_graph(succ))
+    print(strutt_dati[1])
+    print(strutt_dati[0][0])
+    wf2.plot(wf2.get_graph(strutt_dati[1]))
 
 
 
