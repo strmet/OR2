@@ -48,7 +48,7 @@ class Heuristics:
         self.__chromosome_len = 0
         self.__prufer = True
 
-        
+
     def parse_command_line(self):
 
         """
@@ -1008,7 +1008,7 @@ class Heuristics:
 
         return
 
-    def plot(self, graph):
+    def plot(self, graph, cost):
 
         """
 
@@ -1028,6 +1028,8 @@ class Heuristics:
                 mapping[i] = 'T{0}'.format(i)
 
         pos = {i: (point.x, point.y) for i, point in enumerate(self.__points)}
+
+        plt.title(self.__name + " (" + str(cost) + ")", fontsize=16)
 
         # Avoid re scaling of axes
         plt.gca().set_aspect('equal', adjustable='box')
