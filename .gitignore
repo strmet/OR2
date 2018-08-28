@@ -1,16 +1,2 @@
 .idea/*
-/_linux/laf.xml
-colors.scheme.xml
-databaseSettings.xml
-debugger.xml
-editor.codeinsight.xml
-filetypes.xml
-baseRefactoring.xml
-editor.xml
-vcs.xml
-
-.idea/inspectionProfiles
-_linux
-codestyles
-inspection
-databaseDrivers.xml
+out/*
