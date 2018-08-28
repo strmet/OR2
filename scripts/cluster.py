@@ -14,15 +14,19 @@ import getpass
 
 # All the options for the job
 dataset_numbers = [1, 2, 3, 4, 5, 6, 20, 21, 26, 27, 28, 29]
-interfaces = ['cplex']
+#interfaces = ['cplex']
 #rins_options = [-1, 0, 10, 100]
-rins_options = [10]
-crossings = ['lazy', 'loop', 'callback']
+#rins_options = [10]
+#crossings = ['lazy', 'loop', 'callback']
 #crossings = ['no']
+strategies = ['kruskal', 'prufer', 'succ']
 #matheuristics = ['', 'hard', 'soft']
-matheuristics = ['']
+#matheuristics = ['']
 num_iterations = 3
-slacks = [' ']
+genetic_algorithm_iterations = [30, 100, 1000, 2000, 3000]
+genetic_algorithm_timeouts = [90, 300, 600, 1200]  # seconds
+constructive_proportion = ['0', '1/7', '2/7', '3/7']
+#slacks = [' ']
 
 server = "login.dei.unipd.it"
 
@@ -34,7 +38,7 @@ ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 # Ask the user the password
 pwd = str(getpass.getpass(prompt="Password: "))
 
-if getpass.getuser() == 'met': # Avoid asking username
+if getpass.getuser() == 'met':  # Avoid asking username
     username = "stringherm"
 elif getpass.getuser() == 'venir':
     username = "venirluca"
@@ -67,46 +71,43 @@ except IOError:
 sftp.mkdir(remote_path + "out/" + current_folder)
 
 # Files to be uploaded
-files = ['src/__init__.py', 'src/lib/WindFarm.py', 'src/lib/callback.py']
+files = ['src/__init__.py', 'src/lib/WindFarm.py', 'src/lib/callback.py', 'src/lib/Heuristics.py']
 
-# Create a local file tha5000t will be sent to the server
+# Create a local file that will be sent to the server
 with open("commands.job", "w") as fp:
     fp.write("#!/bin/bash \n")
     fp.write("export PYTHONPATH=$PYTHONPATH:/nfsd/opt/CPLEX12.6/cplex/python/3.4/x86-64_linux/ \n")
 
     for it in range(num_iterations):
         for d in dataset_numbers:
-            for i in interfaces:
-                for r in rins_options:
-                    for cr in crossings:
-                        for math in matheuristics:
-                            for slack in slacks:
-                                # Formatting/constructing the instruction to be given:
-                                instruction = "time python3 " + remote_path + "src/__init__.py"
+            for s in strategies:
+                for iterations in genetic_algorithm_iterations:
+                    for p in constructive_proportion:
+                        # Formatting/constructing the instruction to be given:
+                        instruction = "time python3 " + remote_path + "src/__init__.py"
 
-                                # Options to be added:
-                                instruction += " --dataset " + str(d)
-                                instruction += " --interface " + i
-                                instruction += " --rins " + str(r)
-                                instruction += " --cluster "
-                                instruction += " --crossings " + str(cr)
-                                instruction += slack
+                        # Options to be added:
+                        instruction += " --dataset " + str(d)
+                        # instruction += " --cluster "
+                        instruction += " --strategy " + str(s)
+                        instruction += " --iterations " + str(iterations)
+                        instruction += " --proportions " + str(p)
 
-                                if cr == 'loop':
-                                    #instruction += " --matheuristic " + math
-                                    instruction += " --overall_wait_time " + str(4000)
+                        '''if cr == 'loop':
+                            #instruction += " --matheuristic " + math
+                            instruction += " --overall_wait_time " + str(4000)'''
 
-                                instruction += " --outfolder " + current_folder
-                                #instruction += " --timeout 2000"
-                                # Setting the timeout and saving the output to a log file:
-                                #
-                                if cr == 'loop':
-                                    instruction += " --timeout 400"
-                                else:
-                                    instruction += " --timeout 4000"
+                        instruction += " --outfolder " + current_folder
+                        #instruction += " --timeout 2000"
+                        # Setting the timeout and saving the output to a log file:
 
-                                instruction += '\n'
-                                fp.write(instruction)
+                        '''if cr == 'loop':
+                            instruction += " --timeout 400"
+                        else:
+                            instruction += " --timeout 4000"'''
+
+                        instruction += '\n'
+                        fp.write(instruction)
 
 print("Copying files")
 for file in files:
@@ -129,16 +130,14 @@ os.remove("commands.job")
 
 # Create the results file
 file = sftp.file(remote_path + 'out/' + current_folder + '/results.csv', "w", -1)
-num_columns = len(interfaces)*len(rins_options)*len(crossings)*len(matheuristics)*len(slacks)
+num_columns = len(strategies)*len(genetic_algorithm_iterations)*len(genetic_algorithm_timeouts)
 line = "{0},".format(num_columns)
 
 
-for i in interfaces:
-    for r in rins_options:
-        for cr in crossings:
-            for math in matheuristics:
-                for slack in slacks:
-                    line += "{0}_rins{1}_crossings{2}_matheuristic{3},".format(i, r, cr, math)
+for i in genetic_algorithm_iterations:
+    for s in strategies:
+        for p in constructive_proportion:
+            line += "iterations{0}_proportions{1}_strategy{2}".format(i, p, s)
 line = line[:-1]  # Remove last comma
 
 file.write(line)

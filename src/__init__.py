@@ -55,9 +55,9 @@ def main():
 
     prec, succ, graph = wf2.direct_mst(edges)
     cost = wf2.solution_cost(prec, succ)
-    print("GRASP cost:")
-    print(cost)
-    print(math.log(cost, 10))  # debugging
+    #print("GRASP cost:")
+    #print(cost)
+    #print(math.log(cost, 10))  # debugging
 
     '''prec, succ = wf2.bfs_build()
     cost = wf2.solution_cost(prec, succ)
@@ -69,12 +69,12 @@ def main():
 
     strutt_dati, cost = wf2.genetic_algorithm()
 
-    print("GenAlgo cost:")
+    print("Final genetic algorithm cost:")
     print(cost)
     print(math.log(cost, 10))  # debugging
-    print(strutt_dati[1])
-    print(strutt_dati[0][0])
-    wf2.plot(wf2.get_graph(strutt_dati[1]))
+    print("Final genetic algorithm solution:")
+    print(strutt_dati)
+    #wf2.plot(wf2.get_graph(strutt_dati[1]), cost)
 
 
 

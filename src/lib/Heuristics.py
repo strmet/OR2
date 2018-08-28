@@ -4,7 +4,10 @@ from collections import namedtuple
 import networkx as nx
 from .WindFarm import WindFarm
 import random
-import matplotlib.pyplot as plt
+try:
+    import matplotlib.pyplot as plt
+except:
+    pass
 import sys
 import heapq
 import time
@@ -29,7 +32,7 @@ class Heuristics:
         self.__out_dir_name = 'test'
         self.__data_select = 1
         self.__cluster = False
-        self.__time_limit = 60
+        self.__time_limit = 3600
         self.__iterations = 1000
         self.__c = 0
 
@@ -47,6 +50,7 @@ class Heuristics:
         self.__decode = self.__prufer_decode
         self.__chromosome_len = 0
         self.__prufer = True
+        self.__proportions = 2/7
 
 
     def parse_command_line(self):
@@ -77,6 +81,8 @@ class Heuristics:
                                  ' directory, which contains everything related to this run')
         parser.add_argument('--iterations', type=int,
                             help='How many iterations for the genetic algorithm')
+        parser.add_argument('--proportions', type=str,
+                            help='Proportion of constructive solutions we want in the starting population')
 
         args = parser.parse_args()
 
@@ -96,19 +102,42 @@ class Heuristics:
             self.__iterations = args.iterations
 
         if args.strategy == 'prufer':
+            print("Strategy chosen: prufer")
             self.__encode = self.__prufer_encode
             self.__decode = self.__prufer_decode
             self.__prufer = True
         elif args.strategy == 'succ':
+            print("Strategy chosen: succ")
             self.__encode = lambda x,y: y
             self.__decode = self.__succloopfix_decode
             self.__prufer = False
         elif args.strategy == 'kruskal':
+            print("Strategy chosen: kruskal")
             self.__encode = lambda x,y: y
-            self.__decode = self.__succkruskal_decode
+            self.__decode = self.__kruskal_decode
             self.__prufer = False
         else:
             print("No strategy given; the standard one is Prufer.")
+
+        if args.proportions:
+            i = 0
+            l = len(args.proportions)
+            while i < l:
+                if args.proportions[i] == '/':
+                    break
+                i += 1
+
+            if l == 1:
+                if int(args.proportions) == 0:
+                    self.__proportions = 0
+                else:
+                    raise Exception("Invalid fraction format. Expected: [NUM]/[DEN]")
+            elif i == l:
+                raise Exception("Invalid fraction format. Expected: [NUM]/[DEN]")
+            else:
+                num = args.proportions[:i]
+                den = args.proportions[i+1:]
+                self.__proportions = float(num)/float(den)
 
         self.__build_input_files()
         self.__build_custom_parameters()
@@ -583,9 +612,8 @@ class Heuristics:
         return edges
 
     def genetic_algorithm(self,
-                          pop_number=200,
-                          diversification_rate=10,
-                          memory=True):
+                          pop_number=500,
+                          diversification_rate=50):
         """
         This is the main structure of the genetic algorithm,
         as its paradigm has been presented in class.
@@ -595,6 +623,9 @@ class Heuristics:
         :return: the best solution found after the timeout and its cost.
         """
 
+        # Debugging
+        print("Dataset number:", self.__data_select)
+        print("Constructive solution proportion:", self.__proportions)
         # We try to move the random seed 'a bit', before engaging the algorithm
         for i in range(1000):
             random.randint(0,1000)
@@ -602,17 +633,17 @@ class Heuristics:
         print("Generating",pop_number,"solutions. This may take a while.")
         pop = []  # t=1: 'first generation'
 
-        grasp_pop = int(pop_number*(2/7))  # TODO we're experimenting proportions, here
+        grasp_pop = int(pop_number*self.__proportions)
         for i in range(grasp_pop):
             prec, succ, tree = self.direct_mst(self.grasp(num_edges=5))
             pop.append((self.solution_cost(prec, succ), self.__encode(prec, succ)))
 
-        '''bfs_pop = int(pop_number*(4/7))  # TODO we're experimenting proportions, here
+        bfs_pop = int(pop_number*self.__proportions)
         for i in range(bfs_pop):
             prec, succ = self.bfs_build(substation=0, nearest_per_node=7, selected_per_node=3)
-            pop.append((self.solution_cost(prec, succ), self.__encode(prec, succ)))'''
-        rnd_number = pop_number-grasp_pop#-bfs_pop
-        for i in range(rnd_number):    # TODO we're experimenting proportions, here
+            pop.append((self.solution_cost(prec, succ), self.__encode(prec, succ)))
+        rnd_number = pop_number-grasp_pop-bfs_pop
+        for i in range(rnd_number):
             random_chromosome = [random.randint(0,self.__n_nodes-1) for i in range(self.__chromosome_len)]
             prec, succ = self.__decode(random_chromosome)
             pop.append((self.solution_cost(prec, succ), random_chromosome))
@@ -660,11 +691,11 @@ class Heuristics:
             new_children = self.__evaluation(current_children)
 
             # From now on we have a new pop, t=t+1 ('next generation'):
-            e_l_f = 0.00 if intensification_phase else 0.95
+            e_l_f = 0.005 if intensification_phase else 0.20
             fitness, best_from_pop, pop = self.__selection(pop, new_children,
                                                            expected_lucky_few=e_l_f)
             # debugging; to be deleted
-            print("New pop, new fitness",'%.6e' % fitness)
+            print("Generation", j, "Fitness:", '%.6e' % fitness)
 
             # Updating the "best" values
             if fitness < BEST_fitness:
@@ -673,11 +704,13 @@ class Heuristics:
             if best_from_pop[0] < BEST_obj_value:
                 BEST_chromosome = best_from_pop[1]
                 BEST_obj_value = best_from_pop[0]
+                int_counter = 0
+                print("New alpha male found, cost:",'%.6e' % BEST_obj_value)
 
             # Gamma ray incoming
             if not intensification_phase:
-                s_p = 1  # We should mutate everything
-                s_m_p = 0.25
+                s_p = 0.50
+                s_m_p = 0.05
                 pop = self.__mutate(pop,
                                     select_prob=s_p,
                                     single_mut_prob=s_m_p)
@@ -815,6 +848,8 @@ class Heuristics:
             string = str(x)
             if string in seen:  # if so, just randomize this single chromosome...
                 self.__single_gamma_ray(newchild[idx])
+            #else:
+            #    seen.add(string)
 
         # at this point, the population may have duplicates with low probability,
         # but at least we modified the most we can
@@ -908,12 +943,14 @@ class Heuristics:
         chr_length = len(parent_1)
         child_1 = []
         child_2 = []
+        child_3 = []
 
         for i in range(chr_length):
             coin_flip = random.randint(0,1)
 
             child_1.append(parent_1[i] if coin_flip == 1 else parent_2[i])
             child_2.append(parent_2[i] if coin_flip == 1 else parent_1[i])
+            child_3.append(parent_1[i] if parent_1[i] == parent_2[i] else random.randint(0,self.__n_nodes-1))
 
         return [child_1, child_2]
 
@@ -1141,7 +1178,7 @@ class Heuristics:
 
         return prec, succ
 
-    def __succkruskal_decode(self, chromosome, substation=0):
+    def __kruskal_decode(self, chromosome, substation=0):
         """
         Decoding the succ data structure by exploiting Kruskal's algorithm.
 
