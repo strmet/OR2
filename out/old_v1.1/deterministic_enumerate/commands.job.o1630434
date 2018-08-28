@@ -1,8 +1,0 @@
-Collecting networkx
-  Using cached https://files.pythonhosted.org/packages/11/42/f951cc6838a4dff6ce57211c4d7f8444809ccbe2134179950301e5c4c83c/networkx-2.1.zip
-Collecting decorator>=4.1.0 (from networkx)
-  Using cached https://files.pythonhosted.org/packages/bc/bb/a24838832ba35baf52f32ab1a49b906b5f82fb7c76b2f6a7e35e140bac30/decorator-4.3.0-py2.py3-none-any.whl
-Installing collected packages: decorator, networkx
-  Running setup.py install for networkx: started
-    Running setup.py install for networkx: finished with status 'done'
-Successfully installed decorator-4.0.11 networkx

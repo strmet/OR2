@@ -56,6 +56,9 @@ def main():
     prec, succ, graph = wf2.direct_mst(edges)
     cost = wf2.solution_cost(prec, succ)
 
+
+
+
     strutt_dati, cost = wf2.genetic_algorithm()
 
     print("Final genetic algorithm cost:")

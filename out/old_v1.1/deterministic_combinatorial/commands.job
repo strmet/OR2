@@ -1,6 +1,0 @@
-#!/bin/bash 
-export PYTHONPATH=$PYTHONPATH:$HOME/.local/lib/python3.4/site-packages 
-python3 /home/venirluca/algobio1718/src/main.py --k 2 --delta 0.8 --proteinsin ../../data/hint+hi2012_index_file.txt --samplesin ../../data/snvs.tsv --genesin ../../data/hint+hi2012_edge_file.txt > /home/venirluca/algobio1718/out/run__20180423_13:31:41/k=2_delta=0.8_results.log
-python3 /home/venirluca/algobio1718/src/main.py --k 3 --delta 0.8 --proteinsin ../../data/hint+hi2012_index_file.txt --samplesin ../../data/snvs.tsv --genesin ../../data/hint+hi2012_edge_file.txt > /home/venirluca/algobio1718/out/run__20180423_13:31:41/k=3_delta=0.8_results.log
-python3 /home/venirluca/algobio1718/src/main.py --k 4 --delta 0.8 --proteinsin ../../data/hint+hi2012_index_file.txt --samplesin ../../data/snvs.tsv --genesin ../../data/hint+hi2012_edge_file.txt > /home/venirluca/algobio1718/out/run__20180423_13:31:41/k=4_delta=0.8_results.log
-python3 /home/venirluca/algobio1718/src/main.py --k 5 --delta 0.8 --proteinsin ../../data/hint+hi2012_index_file.txt --samplesin ../../data/snvs.tsv --genesin ../../data/hint+hi2012_edge_file.txt > /home/venirluca/algobio1718/out/run__20180423_13:31:41/k=5_delta=0.8_results.log

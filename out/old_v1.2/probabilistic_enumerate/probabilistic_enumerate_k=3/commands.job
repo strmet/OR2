@@ -1,4 +1,0 @@
-#!/bin/bash 
-pip3 install --user networkx 
-pip3 install --user pandas 
-time python3 /home/venirluca/algobio1718/src/main.py --k 3 --delta 0.8 --prob  --proteinsin ../../data/hint+hi2012_index_file.txt --samplesin ../../data/matriceProb.csv --genesin ../../data/hint+hi2012_edge_file.txt --strategy enumerate > /home/venirluca/algobio1718/out/run__20180507_00:04:36/k=3_delta=0.8_results.log
