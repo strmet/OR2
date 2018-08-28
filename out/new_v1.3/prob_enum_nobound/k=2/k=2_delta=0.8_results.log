@@ -1,0 +1,104 @@
+../../data/mutated_expressed_genes.txt
+probabilistic (no bounds) BDDE starts now:
+_________________
+
+Best solution updated!
+Current C (ids):  [6, 1847]
+Current P_C (cardinality): 0.9953638635766424
+_________________
+
+Best solution updated!
+Current C (ids):  [10, 5096]
+Current P_C (cardinality): 1.5871656684919344
+_________________
+
+Best solution updated!
+Current C (ids):  [13, 2005]
+Current P_C (cardinality): 1.9040482604879116
+_________________
+
+Best solution updated!
+Current C (ids):  [16, 9101]
+Current P_C (cardinality): 4.6800026193398025
+_________________
+
+Best solution updated!
+Current C (ids):  [22, 6182]
+Current P_C (cardinality): 5.13663081113441
+_________________
+
+Best solution updated!
+Current C (ids):  [77, 9265]
+Current P_C (cardinality): 6.156874410405408
+_________________
+
+Best solution updated!
+Current C (ids):  [129, 5494]
+Current P_C (cardinality): 6.5379251793496564
+_________________
+
+Best solution updated!
+Current C (ids):  [326, 4870]
+Current P_C (cardinality): 6.913861189178363
+_________________
+
+Best solution updated!
+Current C (ids):  [475, 6988]
+Current P_C (cardinality): 7.155058727096559
+_________________
+
+Best solution updated!
+Current C (ids):  [856, 1232]
+Current P_C (cardinality): 7.43940090125227
+_________________
+
+Best solution updated!
+Current C (ids):  [871, 2633]
+Current P_C (cardinality): 8.698267866524816
+_________________
+
+Best solution updated!
+Current C (ids):  [2206, 8821]
+Current P_C (cardinality): 31.451127262888463
+_________________
+
+Best solution updated!
+Current C (ids):  [9335, 8821]
+Current P_C (cardinality): 31.476944818826496
+_________________
+
+Best solution updated!
+Current C (ids):  [6788, 8821]
+Current P_C (cardinality): 32.35029910553857
+_________________
+
+Best solution updated!
+Current C (ids):  [7972, 8821]
+Current P_C (cardinality): 32.76540930093091
+_________________
+
+Best solution updated!
+Current C (ids):  [2123, 8821]
+Current P_C (cardinality): 34.78889697328066
+_________________
+
+Best solution updated!
+Current C (ids):  [294, 6780]
+Current P_C (cardinality): 36.57934411386293
+_________________
+
+Best solution updated!
+Current C (ids):  [6780, 9257]
+Current P_C (cardinality): 37.45749537436711
+_________________
+
+Best solution updated!
+Current C (ids):  [6780, 8821]
+Current P_C (cardinality): 62.829437317753275
+Numero foglie: 
+40705
+_________________
+Final solution (ids):  [6780, 8821]
+Final solution (genes' names):  ['PTEN', 'TP53']
+Final solution cardinality:  62.829437317753275
+_________________

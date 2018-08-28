@@ -1,0 +1,31 @@
+../../data/mutated_expressed_genes.txt
+_________________
+
+Best solution updated!
+Current C (ids):  {1632, 1, 6278, 3177, 9101, 8821, 6780, 2622}
+Current P_C (cardinality): 101.31231171658476
+_________________
+
+Best solution updated!
+Current C (ids):  {6273, 8821, 6278, 2622, 457, 6780, 9101, 14}
+Current P_C (cardinality): 115.0088532385156
+_________________
+
+Best solution updated!
+Current C (ids):  {6273, 37, 6278, 8821, 7030, 6780, 9101, 2622}
+Current P_C (cardinality): 119.659551864533
+_________________
+
+Best solution updated!
+Current C (ids):  {6273, 8821, 37, 583, 6278, 7030, 6780, 2622}
+Current P_C (cardinality): 120.00490090448056
+_________________
+
+Best solution updated!
+Current C (ids):  {6273, 9585, 8821, 6278, 6793, 3978, 6780, 2622}
+Current P_C (cardinality): 122.43052936776411
+_________________
+Final solution (ids):  {6273, 9585, 8821, 6278, 6793, 3978, 6780, 2622}
+Final solution (genes' names):  ['PIK3CA', 'ZHX1', 'TP53', 'PIK3R1', 'PTK2', 'IDH1', 'PTEN', 'EGFR']
+Final solution cardinality:  122.43052936776411
+_________________

@@ -1,0 +1,36 @@
+../../data/mutated_expressed_genes.txt
+_________________
+
+Best solution updated!
+Current C (ids):  {1}
+Current P_C (cardinality): 3
+_________________
+
+Best solution updated!
+Current C (ids):  {5}
+Current P_C (cardinality): 5
+_________________
+
+Best solution updated!
+Current C (ids):  {14}
+Current P_C (cardinality): 11
+_________________
+
+Best solution updated!
+Current C (ids):  {223}
+Current P_C (cardinality): 13
+_________________
+
+Best solution updated!
+Current C (ids):  {225}
+Current P_C (cardinality): 18
+_________________
+
+Best solution updated!
+Current C (ids):  {2622}
+Current P_C (cardinality): 67
+_________________
+Final solution (ids):  {2622}
+Final solution (genes' names):  ['EGFR']
+Final solution cardinality:  67
+_________________

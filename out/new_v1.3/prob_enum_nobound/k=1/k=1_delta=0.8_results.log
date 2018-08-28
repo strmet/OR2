@@ -1,0 +1,59 @@
+../../data/mutated_expressed_genes.txt
+probabilistic (no bounds) BDDE starts now:
+_________________
+
+Best solution updated!
+Current C (ids):  [6]
+Current P_C (cardinality): 0.9953638635766424
+_________________
+
+Best solution updated!
+Current C (ids):  [10]
+Current P_C (cardinality): 1.5871656684919913
+_________________
+
+Best solution updated!
+Current C (ids):  [16]
+Current P_C (cardinality): 4.411299416956751
+_________________
+
+Best solution updated!
+Current C (ids):  [49]
+Current P_C (cardinality): 4.981193175865599
+_________________
+
+Best solution updated!
+Current C (ids):  [856]
+Current P_C (cardinality): 5.179818616890486
+_________________
+
+Best solution updated!
+Current C (ids):  [1294]
+Current P_C (cardinality): 6.216426805412766
+_________________
+
+Best solution updated!
+Current C (ids):  [1672]
+Current P_C (cardinality): 6.681612372951122
+_________________
+
+Best solution updated!
+Current C (ids):  [2813]
+Current P_C (cardinality): 8.130468490477256
+_________________
+
+Best solution updated!
+Current C (ids):  [3978]
+Current P_C (cardinality): 13.241977337137143
+_________________
+
+Best solution updated!
+Current C (ids):  [6780]
+Current P_C (cardinality): 36.57934411386293
+Numero foglie: 
+9859
+_________________
+Final solution (ids):  [6780]
+Final solution (genes' names):  ['PTEN']
+Final solution cardinality:  36.57934411386293
+_________________

@@ -1,0 +1,46 @@
+_________________
+
+Best solution updated!
+Current C (ids):  {1632, 1}
+Current P_C (cardinality): 27
+_________________
+
+Best solution updated!
+Current C (ids):  {8344, 2}
+Current P_C (cardinality): 41
+_________________
+
+Best solution updated!
+Current C (ids):  {571, 5}
+Current P_C (cardinality): 75
+_________________
+
+Best solution updated!
+Current C (ids):  {12, 7030}
+Current P_C (cardinality): 96
+_________________
+
+Best solution updated!
+Current C (ids):  {28, 6278}
+Current P_C (cardinality): 146
+_________________
+
+Best solution updated!
+Current C (ids):  {8821, 37}
+Current P_C (cardinality): 1273
+_________________
+
+Best solution updated!
+Current C (ids):  {8821, 583}
+Current P_C (cardinality): 1327
+_________________
+
+Best solution updated!
+Current C (ids):  {6780, 8821}
+Current P_C (cardinality): 1483
+_________________
+Final solution (ids):  {6780, 8821}
+Final solution (genes' names):  ['PTEN', 'TP53']
+Final solution cardinality:  1483
+Elapsed time:  02:29:37
+_________________

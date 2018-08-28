@@ -1,0 +1,101 @@
+_________________
+
+Best solution updated!
+Current C (ids):  [1, 8632, 2231]
+Current P_C (cardinality): 26
+_________________
+
+Best solution updated!
+Current C (ids):  [1, 1632, 9303]
+Current P_C (cardinality): 45
+_________________
+
+Best solution updated!
+Current C (ids):  [1, 1632, 9101]
+Current P_C (cardinality): 49
+_________________
+
+Best solution updated!
+Current C (ids):  [1, 1632, 5]
+Current P_C (cardinality): 65
+_________________
+
+Best solution updated!
+Current C (ids):  [1, 7958, 1902]
+Current P_C (cardinality): 66
+_________________
+
+Best solution updated!
+Current C (ids):  [1, 1632, 8821]
+Current P_C (cardinality): 1271
+_________________
+
+Best solution updated!
+Current C (ids):  [5, 9177, 8821]
+Current P_C (cardinality): 1276
+_________________
+
+Best solution updated!
+Current C (ids):  [5, 8632, 8821]
+Current P_C (cardinality): 1277
+_________________
+
+Best solution updated!
+Current C (ids):  [5, 6995, 8821]
+Current P_C (cardinality): 1280
+_________________
+
+Best solution updated!
+Current C (ids):  [5, 1632, 8821]
+Current P_C (cardinality): 1283
+_________________
+
+Best solution updated!
+Current C (ids):  [14, 9101, 8821]
+Current P_C (cardinality): 1293
+_________________
+
+Best solution updated!
+Current C (ids):  [16, 9101, 8821]
+Current P_C (cardinality): 1297
+_________________
+
+Best solution updated!
+Current C (ids):  [37, 5614, 8821]
+Current P_C (cardinality): 1303
+_________________
+
+Best solution updated!
+Current C (ids):  [37, 2622, 8821]
+Current P_C (cardinality): 1362
+_________________
+
+Best solution updated!
+Current C (ids):  [37, 8821, 6780]
+Current P_C (cardinality): 1494
+_________________
+
+Best solution updated!
+Current C (ids):  [244, 6780, 8821]
+Current P_C (cardinality): 1505
+_________________
+
+Best solution updated!
+Current C (ids):  [583, 8821, 9300]
+Current P_C (cardinality): 1521
+_________________
+
+Best solution updated!
+Current C (ids):  [583, 8821, 6780]
+Current P_C (cardinality): 1543
+_________________
+
+Best solution updated!
+Current C (ids):  [2291, 6273, 8821]
+Current P_C (cardinality): 1632
+_________________
+Final solution (ids):  [2291, 6273, 8821]
+Final solution (genes' names):  ['DDX5', 'PIK3CA', 'TP53']
+Final solution cardinality:  1632
+Elapsed time:  01:08:21
+_________________

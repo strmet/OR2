@@ -1,0 +1,40 @@
+_________________
+
+Best solution updated!
+Current C (ids):  {1632, 1, 6780, 8821}
+Current P_C (cardinality): 64.01799627229707
+_________________
+
+Best solution updated!
+Current C (ids):  {8, 6780, 8821, 8632}
+Current P_C (cardinality): 64.75781197340086
+_________________
+
+Best solution updated!
+Current C (ids):  {8821, 6780, 9101, 14}
+Current P_C (cardinality): 66.2505040578551
+_________________
+
+Best solution updated!
+Current C (ids):  {16, 8821, 6780, 9101}
+Current P_C (cardinality): 66.3595628280762
+_________________
+
+Best solution updated!
+Current C (ids):  {8821, 6278, 37, 2622}
+Current P_C (cardinality): 68.35747073638277
+_________________
+
+Best solution updated!
+Current C (ids):  {9030, 6278, 2622, 79}
+Current P_C (cardinality): 91.2701867981711
+_________________
+
+Best solution updated!
+Current C (ids):  {9030, 9282, 6278, 2622}
+Current P_C (cardinality): 93.34075876683607
+_________________
+Final solution (ids):  {9030, 9282, 6278, 2622}
+Final solution (genes' names):  ['TTN', 'VAV2', 'PIK3R1', 'EGFR']
+Final solution cardinality:  93.34075876683607
+_________________

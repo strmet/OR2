@@ -1,0 +1,11 @@
+Requirement already satisfied (use --upgrade to upgrade): networkx in /home/venirluca/.local/lib/python3.5/site-packages
+Requirement already satisfied (use --upgrade to upgrade): decorator>=4.1.0 in /home/venirluca/.local/lib/python3.5/site-packages (from networkx)
+Collecting pandas
+  Downloading https://files.pythonhosted.org/packages/99/0a/37930bbee7a06bb5ce7e12f7970b29a17a49605d0b08a72dee7ab76135bb/pandas-0.22.0-cp35-cp35m-manylinux1_x86_64.whl (25.7MB)
+Requirement already satisfied (use --upgrade to upgrade): python-dateutil>=2 in /usr/lib/python3.5/site-packages (from pandas)
+Collecting pytz>=2011k (from pandas)
+  Downloading https://files.pythonhosted.org/packages/dc/83/15f7833b70d3e067ca91467ca245bae0f6fe56ddc7451aa0dc5606b120f2/pytz-2018.4-py2.py3-none-any.whl (510kB)
+Requirement already satisfied (use --upgrade to upgrade): numpy>=1.9.0 in /usr/lib64/python3.5/site-packages (from pandas)
+Requirement already satisfied (use --upgrade to upgrade): six>=1.5 in /usr/lib/python3.5/site-packages (from python-dateutil>=2->pandas)
+Installing collected packages: pytz, pandas
+Successfully installed pandas-0.22.0 pytz-2018.4

@@ -1,0 +1,60 @@
+_________________
+
+Best solution updated!
+Current C (ids):  {1, 3557}
+Current P_C (cardinality): 8
+_________________
+
+Best solution updated!
+Current C (ids):  {2, 7588}
+Current P_C (cardinality): 10
+_________________
+
+Best solution updated!
+Current C (ids):  {4796, 5}
+Current P_C (cardinality): 22
+_________________
+
+Best solution updated!
+Current C (ids):  {28, 6278}
+Current P_C (cardinality): 38
+_________________
+
+Best solution updated!
+Current C (ids):  {37, 2622}
+Current P_C (cardinality): 69
+_________________
+
+Best solution updated!
+Current C (ids):  {2622, 38}
+Current P_C (cardinality): 75
+_________________
+
+Best solution updated!
+Current C (ids):  {9030, 79}
+Current P_C (cardinality): 97
+_________________
+
+Best solution updated!
+Current C (ids):  {9030, 87}
+Current P_C (cardinality): 98
+_________________
+
+Best solution updated!
+Current C (ids):  {1283, 9030}
+Current P_C (cardinality): 101
+_________________
+
+Best solution updated!
+Current C (ids):  {5580, 9030}
+Current P_C (cardinality): 103
+_________________
+
+Best solution updated!
+Current C (ids):  {9030, 5903}
+Current P_C (cardinality): 111
+_________________
+Final solution (ids):  {9030, 5903}
+Final solution (genes' names):  ['TTN', 'OBSCN']
+Final solution cardinality:  111
+_________________

@@ -1,0 +1,6 @@
+#!/bin/bash 
+pip3 install --user networkx 
+python3 /home/venirluca/algobio1718/src/main.py --k 2 --delta 0.8 --proteinsin ../../data/hint+hi2012_index_file.txt --samplesin ../../data/snvs.tsv --genesin ../../data/hint+hi2012_edge_file.txt --strategy enumerate > /home/venirluca/algobio1718/out/run__20180424_11:14:57/k=2_delta=0.8_results.log
+python3 /home/venirluca/algobio1718/src/main.py --k 3 --delta 0.8 --proteinsin ../../data/hint+hi2012_index_file.txt --samplesin ../../data/snvs.tsv --genesin ../../data/hint+hi2012_edge_file.txt --strategy enumerate > /home/venirluca/algobio1718/out/run__20180424_11:14:57/k=3_delta=0.8_results.log
+python3 /home/venirluca/algobio1718/src/main.py --k 4 --delta 0.8 --proteinsin ../../data/hint+hi2012_index_file.txt --samplesin ../../data/snvs.tsv --genesin ../../data/hint+hi2012_edge_file.txt --strategy enumerate > /home/venirluca/algobio1718/out/run__20180424_11:14:57/k=4_delta=0.8_results.log
+python3 /home/venirluca/algobio1718/src/main.py --k 5 --delta 0.8 --proteinsin ../../data/hint+hi2012_index_file.txt --samplesin ../../data/snvs.tsv --genesin ../../data/hint+hi2012_edge_file.txt --strategy enumerate > /home/venirluca/algobio1718/out/run__20180424_11:14:57/k=5_delta=0.8_results.log
