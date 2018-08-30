@@ -129,7 +129,7 @@ os.remove("commands.job")
 
 # Create the results file
 file = sftp.file(remote_path + 'out/' + current_folder + '/results.csv', "w", -1)
-num_columns = len(strategies)*len(genetic_algorithm_iterations)*len(genetic_algorithm_timeouts)
+num_columns = len(strategies)*len(genetic_algorithm_iterations)
 line = "{0},".format(num_columns)
 
 
