@@ -613,7 +613,7 @@ class Heuristics:
 
     def genetic_algorithm(self,
                           pop_number=500,
-                          diversification_rate=50):
+                          diversification_rate=30):
         """
         This is the main structure of the genetic algorithm,
         as its paradigm has been presented in class.
