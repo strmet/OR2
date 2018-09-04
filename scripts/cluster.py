@@ -23,7 +23,7 @@ strategies = ['kruskal', 'prufer', 'succ']
 #matheuristics = ['', 'hard', 'soft']
 #matheuristics = ['']
 num_iterations = 3
-genetic_algorithm_iterations = [100]
+genetic_algorithm_iterations = [300]
 constructive_proportion = ['0', '1/7', '2/7', '3/7']
 #slacks = [' ']
 

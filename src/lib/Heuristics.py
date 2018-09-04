@@ -613,7 +613,7 @@ class Heuristics:
 
     def genetic_algorithm(self,
                           pop_number=500,
-                          diversification_rate=30):
+                          diversification_rate=25):
         """
         This is the main structure of the genetic algorithm,
         as its paradigm has been presented in class.
@@ -640,7 +640,7 @@ class Heuristics:
 
         bfs_pop = int(pop_number*self.__proportions)
         for i in range(bfs_pop):
-            prec, succ = self.bfs_build(substation=0, nearest_per_node=7, selected_per_node=3)
+            prec, succ = self.bfs_build(substation=0, nearest_per_node=5, selected_per_node=3)
             pop.append((self.solution_cost(prec, succ), self.__encode(prec, succ)))
         rnd_number = pop_number-grasp_pop-bfs_pop
         for i in range(rnd_number):
@@ -660,9 +660,6 @@ class Heuristics:
 
         intensification_phase = True
 
-        # remove after debugging (visualizating purposes)
-        #prec, succ = self.__decode(BEST_chromosome)
-        #self.plot(self.get_graph(succ))
         # Iterations counter(s)
         j = 0
         int_counter = 0
@@ -1076,7 +1073,7 @@ class Heuristics:
 
         plt.show()
 
-    def bfs_build(self, substation=0, nearest_per_node=5, selected_per_node=2):
+    def bfs_build(self, substation=0, nearest_per_node=5, selected_per_node=2, max_trials=3):
         """
         This method builds a solution with a BFS-like search.
         It is a personalized method on which we've tried to out-perform
@@ -1085,21 +1082,35 @@ class Heuristics:
         :param substation: which node is our substation?
         :param nearest_per_node: how many nodes are considered for the linking?
         :param selected_per_node: how many nodes are actually linked per node?
+        :param max_trials: how many times the algorithm should try to find a neighbour
         :return: prec, succ (data structure representing a tree)
         """
-        if selected_per_node > nearest_per_node:
+        if selected_per_node >= nearest_per_node:
             raise ValueError("These parameters make no sense. Given:",
                              nearest_per_node,
                              selected_per_node)
+
         # We move the random seed, before proceeding.
         for i in range(1000):
             random.random()
 
-        # c=12 is the maximum of every dataset, besides the infinite-cable one.
-        c = min(self.__c, 12)
+        # Initializations.
+        # We choose to initialize our graph as a disconnected forest of roots.
+        prec = [
+            []
+            for i in range(self.__n_nodes)
+        ]
+        succ = [
+            i
+            for i in range(self.__n_nodes)
+        ]
 
-        # It takes at least the following number to have a sustainable solution
-        # (we want to endure the power --> feasible solution)
+        # c = 12 is the maximum of every dataset, besides the infinite-cable one.
+        c = min(self.__c, 12)  # Actually pick a c value that makes sense (e.g. 9999 doesn't)
+
+        # It takes at least the following number to have a "sustainable" solution
+        # Here, "sustainable" means "feasible" in the power enduring constraint sense.
+        # (we want to endure the power of the whole plant --> i.e. feasible solution)
         # x = ceiling (sum_{p \in points} {p.pwr} / max(cable_capacity))
         min_cables_to_subst = int(
             sum(p.power for p in self.__points)
@@ -1107,24 +1118,18 @@ class Heuristics:
             max(self.__cables, key=lambda cab:cab.capacity).capacity
         ) + 1  # This "+1" works as the ceiling function, while int() is a well-known floor function
 
-        # We choose a random integer value between these two
-        p = random.randint(min_cables_to_subst, c)
+        # Now, in a warm-up phase, we decide to connect the first nodes to the substation
+        # To do so, we add a random number of random nodes that are very close to the substation
+
+        # As for the maximum number of nodes in the starting set,
+        # we choose a random integer value between these two:
+        p = random.randint(min_cables_to_subst, c)  # This is the number of starting points (max)
 
         starting_nodes = set([self.__sorted_distances[substation][j][2] for j in range(p+1)])
         starting_nodes.remove(substation)
-
-        prec = [
-            []
-            for i in range(self.__n_nodes)
-        ]
-        succ = [
-            substation
-            for i in range(self.__n_nodes)
-        ]
-        visited = set()
-
-        visited.add(substation)
-        queue = []
+        visited = {substation}
+        # Actually add the starting nodes to the tree.
+        queue = []  # This list contains the nodes from which we're searching offsprings.
         for node in starting_nodes:
             prec[substation].append(node)
             succ[node] = substation
@@ -1132,46 +1137,71 @@ class Heuristics:
             visited.add(node)
 
         # We randomize the order in which we explore the first elements of the queue
-        for i in range(100):
+        for i in range(25):
             random.shuffle(queue)
 
-        # After this warm-up, the algorithm may begin:
-        while len(queue) > 0:
+        # After this warm-up, the actual algorithm may begin:
+        while len(queue) > 0:  # We keep adding the nodes until we've visited them all
             node = queue[0]
             queue.remove(node)
-            has_prec = False
+            is_current_node_linked = False
 
-            closests = [self.__sorted_distances[node][j][2] for j in range(nearest_per_node)]
-            selected = random.sample(closests,selected_per_node)
-            for c in selected:
-                if c not in visited:
-                    has_prec = True
-                    visited.add(c)
-                    if c not in starting_nodes:
-                        queue.append(c)
-                    prec[node].append(c)
-                    succ[c] = node
+            # The search we're performing relies on increments;
+            # if we fail to connect new nodes, we try and repeat with a wider scope
+            k = 1
+            h = 0
+            trials = 0
 
-            # If we didn't manage to find some proper neighbours, we at least try again with a wider range
-            if not has_prec:
-                closests = [self.__sorted_distances[node][j][2] for j in range(int(nearest_per_node*2)+1)]
-                selected = random.sample(closests,int(selected_per_node*1.5)+1)
+            while not is_current_node_linked and trials < max_trials:
+                # Until we've not linked anything to this node, we keep iterating and trying;
+                # we stop at the moment we've exceeded the # of trials (or we've actually linked something)
+
+                # First, we extract the nearest_per_node closests nodes to the current node
+                # (with increment k)
+                closests = [
+                    self.__sorted_distances[node][j][2]
+                    for j in range(
+                        min(
+                            int(nearest_per_node*k),
+                            len(self.__sorted_distances[node])
+                        )
+                    )
+                ]
+
+                # Then, we randomly sample the nodes that will actually be connected
+                # (by minding increments/bounds to avoid silly bugs)
+                selected = random.sample(
+                    closests,
+                    min(
+                        max(0, random.randint(int(selected_per_node-h), int(selected_per_node+h))),
+                        int(nearest_per_node*k),
+                        len(closests)
+                    )
+                )
                 for c in selected:
                     if c not in visited:
+                        is_current_node_linked = True
                         visited.add(c)
                         if c not in starting_nodes:
                             queue.append(c)
                         prec[node].append(c)
                         succ[c] = node
+                k += 0.645
+                h += 0.645
+                trials += 1
 
-        # This algorithm doesn't guarantee to add every node.
-        if len(visited) < self.__n_nodes:  # If any is left behind, randomly choose its successor.
-            not_visited = set([i for i in range(self.__n_nodes)]) - visited
-
+        # This algorithm, since it relies on mere trials, doesn't guarantee to add every node.
+        visited = set()
+        not_visited = set([i for i in range(self.__n_nodes)])
+        # Therefore, we exploit this function, that tells us which nodes have/haven't been visited
+        self.__treevisit(prec, succ, substation, visited, not_visited)
+        if len(not_visited) > 0:  # If any is left behind,
+            # for each not visited node,
             for node in not_visited:
-                # But be smart about it:
-                closests = [self.__sorted_distances[node][j][2] for j in visited][:nearest_per_node]
-                closests.remove(node)
+                # randomly choose its successor, but be smart about it:
+                # let's try and find the closest nodes.
+                closests = [self.__sorted_distances[node][j][2] for j in visited]
+                closests.remove(node)  # We don't want self-loops, here.
                 selected = random.choice(closests)  # And at the same time, randomize this smart choice.
                 prec[selected].append(node)
                 succ[node] = selected
