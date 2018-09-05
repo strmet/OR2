@@ -19,12 +19,12 @@ dataset_numbers = [1, 2, 3, 4, 5, 6, 20, 21, 26, 27, 28, 29]
 #rins_options = [10]
 #crossings = ['lazy', 'loop', 'callback']
 #crossings = ['no']
-strategies = ['kruskal', 'prufer', 'succ']
+strategies = ['prufer', 'kruskal', 'succ']
 #matheuristics = ['', 'hard', 'soft']
 #matheuristics = ['']
-num_iterations = 3
-genetic_algorithm_iterations = [300]
-constructive_proportion = ['0', '1/7', '2/7', '3/7']
+num_iterations = 1
+timeout = [600]  # seconds
+constructive_proportion = ['3/7']
 #slacks = [' ']
 
 server = "login.dei.unipd.it"
@@ -77,20 +77,22 @@ with open("commands.job", "w") as fp:
     fp.write("#!/bin/bash \n")
     fp.write("export PYTHONPATH=$PYTHONPATH:/nfsd/opt/CPLEX12.6/cplex/python/3.4/x86-64_linux/ \n")
 
-    for it in range(num_iterations):
+    for i in range(num_iterations):
         for d in dataset_numbers:
-            for s in strategies:
-                for iterations in genetic_algorithm_iterations:
-                    for p in constructive_proportion:
+            for t in timeout:
+                for p in constructive_proportion:
+                    for s in strategies:
                         # Formatting/constructing the instruction to be given:
                         instruction = "time python3 " + remote_path + "src/__init__.py"
 
                         # Options to be added:
                         instruction += " --dataset " + str(d)
                         # instruction += " --cluster "
-                        instruction += " --strategy " + str(s)
-                        instruction += " --iterations " + str(iterations)
+                        
+                        instruction += " --timeout " + str(t)
+                        instruction += " --iterations " + str(int(10e6))
                         instruction += " --proportions " + str(p)
+                        instruction += " --strategy " + str(s)
 
                         '''if cr == 'loop':
                             #instruction += " --matheuristic " + math
@@ -129,14 +131,11 @@ os.remove("commands.job")
 
 # Create the results file
 file = sftp.file(remote_path + 'out/' + current_folder + '/results.csv', "w", -1)
-num_columns = len(strategies)*len(genetic_algorithm_iterations)
+num_columns = len(strategies)*len(timeout)
 line = "{0},".format(num_columns)
 
-
-for i in genetic_algorithm_iterations:
-    for s in strategies:
-        for p in constructive_proportion:
-            line += "iterations{0}_proportions{1}_strategy{2}".format(i, p, s)
+for s in strategies:
+    line += "strategy{0},".format(s)
 line = line[:-1]  # Remove last comma
 
 file.write(line)

@@ -29,11 +29,11 @@ class Heuristics:
         self.__points = []
         self.__cables = []
         self.__n_substations = 0
-        self.__out_dir_name = 'test'
+        self.__out_dir_name = 'localtesting'
         self.__data_select = 1
         self.__cluster = False
         self.__time_limit = 3600
-        self.__iterations = 1000
+        self.__iterations = 100
         self.__c = 0
 
         # Useful data structures:
@@ -50,7 +50,10 @@ class Heuristics:
         self.__decode = self.__prufer_decode
         self.__chromosome_len = 0
         self.__prufer = True
-        self.__proportions = 2/7
+        self.__proportions = 3/7
+
+        # I/O
+        self.__project_path = ''
 
 
     def parse_command_line(self):
@@ -639,9 +642,23 @@ class Heuristics:
             pop.append((self.solution_cost(prec, succ), self.__encode(prec, succ)))
 
         bfs_pop = int(pop_number*self.__proportions)
+        bugcounter = 0
         for i in range(bfs_pop):
-            prec, succ = self.bfs_build(substation=0, nearest_per_node=5, selected_per_node=3)
-            pop.append((self.solution_cost(prec, succ), self.__encode(prec, succ)))
+            try:
+                prec, succ = self.bfs_build(substation=0, nearest_per_node=5, selected_per_node=3)
+                pop.append((self.solution_cost(prec, succ), self.__encode(prec, succ)))
+            except ValueError:
+                print("Silly bug found")
+                bugcounter += 1
+        b_counter = 0
+        while b_counter < bugcounter:
+            try:
+                prec, succ = self.bfs_build(substation=0, nearest_per_node=5, selected_per_node=3)
+                pop.append((self.solution_cost(prec, succ), self.__encode(prec, succ)))
+            except ValueError:
+                print("Silly bug found")
+                bugcounter += 1
+            b_counter += 1
         rnd_number = pop_number-grasp_pop-bfs_pop
         for i in range(rnd_number):
             random_chromosome = [random.randint(0,self.__n_nodes-1) for i in range(self.__chromosome_len)]
@@ -1063,13 +1080,13 @@ class Heuristics:
 
         pos = {i: (point.x, point.y) for i, point in enumerate(self.__points)}
 
-        plt.title(self.__name + " (" + str(cost) + ")", fontsize=16)
+        plt.title(self.__name + " (" + str('%.6e' % cost) + ")", fontsize=16)
 
         # Avoid re scaling of axes
         plt.gca().set_aspect('equal', adjustable='box')
 
         # draw graph
-        nx.draw(graph, pos, with_labels=True, node_size=1300, alpha=0.3, arrows=True, labels=mapping, node_color='g', linewidth=10)
+        nx.draw(graph, pos, with_labels=True, node_size=1000, alpha=0.3, arrows=True, labels=mapping, node_color='g', linewidth=10)
 
         plt.show()
 
@@ -1481,6 +1498,31 @@ class Heuristics:
 
         self.__DFS_loopfix(succ[node], prec, succ, visited)  # No loops found, yet: search recursively
         return
+
+    def write_results(self, file_name='results.csv', best_obj=10e12):
+
+        """
+        Write the file to be used for perfromance profiling script
+
+        :param file_name: Output file name
+        :return: None
+
+        """
+
+        with open(self.__project_path + "/out/" + self.__out_dir_name + "/" + file_name, 'r') as fp:
+            file_content = fp.readlines()
+
+            num_columns = len(file_content[0].split(sep=','))
+
+        with open(self.__project_path + "/out/" + self.__out_dir_name + "/" + file_name, 'a') as fp:
+
+            num_tokens_last_line = len(file_content[-1].split(sep=','))
+
+            if num_tokens_last_line == num_columns:  # Write down the instance name
+                fp.write("\ndata" + str(self.__data_select))
+
+            fp.write("," + str('%.6e' % best_obj))
+
 
     # --- OLD IDEAS ---
 

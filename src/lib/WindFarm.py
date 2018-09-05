@@ -988,7 +988,7 @@ class WindFarm:
         parser.add_argument('--overall_wait_time', type=int,
                             help='Used in hard/soft fixing and loop method to stop the execution')
 
-        args = parser.parse_args()
+        args, unknown = parser.parse_known_args()
 
         if args.outfolder:
             self.__out_dir_name = args.outfolder
@@ -1007,12 +1007,12 @@ class WindFarm:
                           ParseWarning)
             self.__interface = 'cplex'
 
-
-        if args.rins <= -2:
-            warnings.warn("RINS parameter given is not valid. Given: " + str(args.rins) +
-                          ". Using the default value: " + str(self.__rins))
-        else:
-            self.__rins = args.rins
+        if args.rins:
+            if args.rins <= -2:
+                warnings.warn("RINS parameter given is not valid. Given: " + str(args.rins) +
+                              ". Using the default value: " + str(self.__rins))
+            else:
+                self.__rins = args.rins
 
         if args.timeout:
             self.__time_limit = args.timeout
