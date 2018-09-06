@@ -642,23 +642,21 @@ class Heuristics:
             pop.append((self.solution_cost(prec, succ), self.__encode(prec, succ)))
 
         bfs_pop = int(pop_number*self.__proportions)
-        bugcounter = 0
+        d_n = 0
         for i in range(bfs_pop):
             try:
                 prec, succ = self.bfs_build(substation=0, nearest_per_node=5, selected_per_node=3)
                 pop.append((self.solution_cost(prec, succ), self.__encode(prec, succ)))
             except ValueError:
-                print("Silly bug found")
-                bugcounter += 1
-        b_counter = 0
-        while b_counter < bugcounter:
+                d_n += 1
+        d = 0
+        while d < d_n:
             try:
                 prec, succ = self.bfs_build(substation=0, nearest_per_node=5, selected_per_node=3)
                 pop.append((self.solution_cost(prec, succ), self.__encode(prec, succ)))
             except ValueError:
-                print("Silly bug found")
-                bugcounter += 1
-            b_counter += 1
+                d_n += 1
+            d += 1
         rnd_number = pop_number-grasp_pop-bfs_pop
         for i in range(rnd_number):
             random_chromosome = [random.randint(0,self.__n_nodes-1) for i in range(self.__chromosome_len)]

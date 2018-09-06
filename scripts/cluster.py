@@ -13,7 +13,8 @@ import getpass
 '''
 
 # All the options for the job
-dataset_numbers = [1, 2, 3, 4, 5, 6, 20, 21, 26, 27, 28, 29]
+dataset_numbers = [1,2,3,4,5,6,20,21,26,27,28,29]
+#dataset_numbers = [29]
 #interfaces = ['cplex']
 #rins_options = [-1, 0, 10, 100]
 #rins_options = [10]
