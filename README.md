@@ -5,7 +5,6 @@ During this course, we were asked to use discrete optimization to minimize the c
 During the couse, we have compared CPLEX against genetic algorithms. We have designed and implemented with our professor a genetic algorithm with encoding structure able to solve the problem. The results have proved that the "free" approach can allow to reach solutions close to CPLEX. This allows to save the license costs of the IBM's software.
 
 <p align="center">
-  <img src="genetic.pdf" width="350" title="hover text">
+  <img src="genetic.svg" width="350" title="hover text">
 </p>
 
-[embed]genetic.pdf[/embed]
