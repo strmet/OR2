@@ -5,5 +5,6 @@ asked to optimize its cable routing.
 
 During the couse, we have compared CPLEX against genetic algorithms. We have designed and implemented with our professor a genetic algorithm with encoding structure able to solve the problem. The results have proved that the "free" approach can allow to reach solutions close to CPLEX. This allows to save the license costs of the IBM's software.
 
-
-![Screenshot](genetic.pdf)
+<p align="center">
+  <img src="genetic.pdf" width="350" title="hover text">
+</p>
